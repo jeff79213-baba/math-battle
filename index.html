@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚔️ 數學對戰</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+* { user-select: none; -webkit-user-select: none; }
+body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100vh; }
+
+.screen { display: none; }
+.screen.active { display: flex; }
+
+/* Fighter Silhouette */
+.fighter { position: relative; width: 100px; height: 150px; transition: transform .3s; }
+.fighter .head { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 32px; height: 32px; border-radius: 50%; z-index: 3; }
+.fighter .body { position: absolute; top: 28px; left: 50%; transform: translateX(-50%); width: 44px; height: 52px; border-radius: 12px; z-index: 2; }
+.fighter .arm-l { position: absolute; top: 34px; left: calc(50% - 30px); width: 14px; height: 36px; border-radius: 7px; transform-origin: top center; transform: rotate(20deg); z-index: 1; }
+.fighter .arm-r { position: absolute; top: 34px; right: calc(50% - 30px); width: 14px; height: 36px; border-radius: 7px; transform-origin: top center; transform: rotate(-20deg); z-index: 1; }
+.fighter .leg-l { position: absolute; top: 76px; left: calc(50% - 14px); width: 16px; height: 48px; border-radius: 8px; transform-origin: top center; transform: rotate(10deg); z-index: 0; }
+.fighter .leg-r { position: absolute; top: 76px; right: calc(50% - 14px); width: 16px; height: 48px; border-radius: 8px; transform-origin: top center; transform: rotate(-10deg); z-index: 0; }
+.fighter .weapon { position: absolute; font-size: 22px; z-index: 4; }
+.fighter.attack .arm-r { transform: rotate(40deg) translateX(10px); }
+.fighter.attack .arm-l { transform: rotate(15deg); }
+.fighter.hit { transform: translateX(10px) rotate(-5deg); }
+.fighter.hit .arm-l { transform: rotate(30deg); }
+.fighter.hit .arm-r { transform: rotate(-40deg); }
+.fighter.idle .arm-l { transform: rotate(20deg); }
+.fighter.idle .arm-r { transform: rotate(-20deg); }
+
+/* HP Bar */
+.hp-bar-bg { width: 100%; height: 20px; background: #1e293b; border-radius: 10px; overflow: hidden; position: relative; }
+.hp-bar-fill { height: 100%; border-radius: 10px; transition: width .5s ease; position: relative; }
+.hp-bar-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 12px; font-weight: bold; color: white; text-shadow: 0 1px 2px rgba(0,0,0,.5); z-index: 1; }
+
+/* Drag & Drop */
+.drag-number { width: 50px; height: 50px; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border-radius: 12px; cursor: grab; touch-action: none; transition: transform .15s; }
+.drag-number:active, .drag-number.dragging { transform: scale(1.15); cursor: grabbing; }
+.drop-zone { width: 60px; height: 60px; border: 3px dashed #94a3b8; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; color: #94a3b8; transition: all .2s; }
+.drop-zone.drag-over { border-color: #22c55e; background: rgba(34,197,94,.15); }
+.drop-zone.filled { border-style: solid; border-color: #22c55e; background: rgba(34,197,94,.2); color: #22c55e; }
+
+/* Grid */
+.grid-cell { width: 54px; height: 54px; border: 1px solid #334155; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: #64748b; cursor: pointer; border-radius: 6px; transition: all .15s; }
+.grid-cell:hover { background: #1e293b; }
+.grid-cell.selected { background: #3b82f6; color: white; border-color: #3b82f6; }
+.grid-cell.wrong { background: #ef4444; color: white; border-color: #ef4444; animation: shake .3s; }
+.grid-cell.correct { background: #22c55e; color: white; border-color: #22c55e; }
+.stone-btn { width: 70px; height: 70px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; cursor: pointer; border: 3px solid transparent; transition: all .15s; }
+.stone-btn.selected { border-color: #3b82f6; transform: scale(1.1); box-shadow: 0 0 20px rgba(59,130,246,.5); }
+
+/* Feedback */
+.feedback-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 100; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.feedback-overlay.show { opacity: 1; }
+.feedback-icon { font-size: 120px; animation: popIn .3s ease; }
+
+/* Animations */
+@keyframes popIn { 0% { transform: scale(0); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
+@keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.slide-up { animation: slideUp .3s ease; }
+
+/* Combo badge */
+.combo-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 14px; font-weight: bold; animation: popIn .3s ease; }
+
+/* Options button */
+.opt-btn { padding: 12px 28px; border-radius: 12px; font-size: 20px; font-weight: bold; cursor: pointer; border: 2px solid #334155; background: #1e293b; color: #e2e8f0; transition: all .15s; min-width: 80px; }
+.opt-btn:hover { border-color: #3b82f6; background: #1e3a5f; }
+.opt-btn.selected { border-color: #3b82f6; background: #1d4ed8; color: white; }
+.opt-btn.correct { border-color: #22c55e; background: #15803d; color: white; }
+.opt-btn.wrong { border-color: #ef4444; background: #b91c1c; color: white; }
+
+/* Layer progress dots */
+.dot { width: 14px; height: 14px; border-radius: 50%; transition: all .3s; }
+.dot.done { background: #22c55e; }
+.dot.active { background: #3b82f6; animation: pulse 1s infinite; }
+.dot.pending { background: #334155; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+/* Waiting pulse */
+.waiting-pulse { animation: pulse 1.5s infinite; }
+
+/* Responsive */
+@media (max-width: 480px) {
+  .grid-cell { width: 44px; height: 44px; font-size: 12px; }
+  .drag-number { width: 40px; height: 40px; font-size: 20px; }
+  .drop-zone { width: 50px; height: 50px; font-size: 24px; }
+  .opt-btn { padding: 10px 20px; font-size: 17px; min-width: 65px; }
+  .fighter { width: 70px; height: 110px; }
+  .fighter .head { width: 24px; height: 24px; }
+  .fighter .body { width: 34px; height: 40px; top: 20px; }
+  .fighter .arm-l, .fighter .arm-r { width: 10px; height: 28px; top: 26px; }
+  .fighter .leg-l, .fighter .leg-r { width: 12px; height: 36px; top: 56px; }
+  .stone-btn { width: 56px; height: 56px; font-size: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ====== SCREEN: LOBBY ====== -->
+<div id="screen-lobby" class="screen active min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-md w-full space-y-6 text-center slide-up">
+    <div class="text-6xl mb-2">⚔️</div>
+    <h1 class="text-4xl font-bold text-white mb-1">數學對戰</h1>
+    <p class="text-slate-400 text-sm">雙人即時對戰 · 回答數學題擊敗對手！</p>
+
+    <div class="bg-slate-800/50 rounded-2xl p-6 space-y-4">
+      <input id="input-nickname" type="text" placeholder="輸入你的暱稱" maxlength="8"
+        class="w-full px-4 py-3 rounded-xl bg-slate-700 text-white text-center text-lg border border-slate-600 focus:border-blue-500 focus:outline-none">
+
+      <div class="grid grid-cols-2 gap-3">
+        <button id="btn-create-room" onclick="createRoom()"
+          class="py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg transition">創建房間</button>
+        <button id="btn-join-room" onclick="joinRoom()"
+          class="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-lg transition">加入房間</button>
+      </div>
+
+      <div id="join-input-area" class="hidden space-y-2">
+        <input id="input-room-code" type="text" placeholder="輸入 4 碼房間代號" maxlength="4"
+          class="w-full px-4 py-3 rounded-xl bg-slate-700 text-white text-center text-lg border border-slate-600 focus:border-emerald-500 focus:outline-none uppercase tracking-widest">
+        <button onclick="confirmJoin()"
+          class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-lg transition">確認加入</button>
+      </div>
+
+      <div id="hp-config" class="space-y-2 pt-2 border-t border-slate-700">
+        <p class="text-slate-400 text-sm">💖 初始血量設定（創房者有效）</p>
+        <div class="flex items-center gap-3 justify-center">
+          <input id="hp-slider" type="range" min="30" max="200" value="100" step="10"
+            class="w-48 accent-blue-500" oninput="updateHpDisplay()">
+          <span id="hp-display" class="text-white font-bold text-lg w-12">100</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="lobby-error" class="text-red-400 text-sm hidden"></div>
+  </div>
+</div>
+
+<!-- ====== SCREEN: WAITING ====== -->
+<div id="screen-waiting" class="screen min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-md w-full space-y-6 text-center slide-up">
+    <div class="text-6xl mb-2">⏳</div>
+    <h2 class="text-2xl font-bold text-white">等待對手加入...</h2>
+
+    <div class="bg-slate-800/50 rounded-2xl p-6 space-y-4">
+      <p class="text-slate-400 text-sm">房間代號</p>
+      <div id="room-code-display" class="text-5xl font-bold text-blue-400 tracking-[.3em]">----</div>
+
+      <div id="qrcode-container" class="flex justify-center pt-2">
+        <div id="qrcode-placeholder" class="w-40 h-40 bg-slate-700 rounded-xl flex items-center justify-center text-slate-500 text-sm">QR Code</div>
+      </div>
+
+      <div class="flex items-center justify-center gap-2 text-slate-400">
+        <span class="waiting-pulse text-2xl">●</span>
+        <span>等待第二位玩家...</span>
+      </div>
+
+      <div id="player-in-room" class="flex justify-center gap-6 pt-2">
+        <div id="waiting-p1" class="text-center">
+          <div class="fighter mx-auto" id="fighter-waiting-p1"><div class="head bg-blue-500"></div><div class="body bg-blue-500"></div><div class="arm-l bg-blue-500"></div><div class="arm-r bg-blue-500"></div><div class="leg-l bg-blue-500"></div><div class="leg-r bg-blue-500"></div></div>
+          <p id="waiting-p1-name" class="text-white font-bold mt-1">---</p>
+        </div>
+        <div class="flex items-center text-3xl text-slate-600">VS</div>
+        <div id="waiting-p2" class="text-center opacity-40">
+          <div class="fighter mx-auto"><div class="head bg-slate-600"></div><div class="body bg-slate-600"></div><div class="arm-l bg-slate-600"></div><div class="arm-r bg-slate-600"></div><div class="leg-l bg-slate-600"></div><div class="leg-r bg-slate-600"></div></div>
+          <p class="text-slate-500 font-bold mt-1">???</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+      <p class="text-slate-400 text-sm">選擇你的角色顏色</p>
+      <div class="flex justify-center gap-3" id="color-picker">
+        <button onclick="selectColor('red')" class="w-10 h-10 rounded-full bg-red-500 border-4 border-transparent hover:border-white transition color-opt" data-color="red"></button>
+        <button onclick="selectColor('blue')" class="w-10 h-10 rounded-full bg-blue-500 border-4 border-transparent hover:border-white transition color-opt" data-color="blue"></button>
+        <button onclick="selectColor('emerald')" class="w-10 h-10 rounded-full bg-emerald-500 border-4 border-transparent hover:border-white transition color-opt" data-color="emerald"></button>
+        <button onclick="selectColor('purple')" class="w-10 h-10 rounded-full bg-purple-500 border-4 border-transparent hover:border-white transition color-opt" data-color="purple"></button>
+        <button onclick="selectColor('orange')" class="w-10 h-10 rounded-full bg-orange-500 border-4 border-transparent hover:border-white transition color-opt" data-color="orange"></button>
+        <button onclick="selectColor('pink')" class="w-10 h-10 rounded-full bg-pink-500 border-4 border-transparent hover:border-white transition color-opt" data-color="pink"></button>
+      </div>
+    </div>
+
+    <button onclick="cancelRoom()"
+      class="py-2 px-6 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold transition">離開房間</button>
+  </div>
+</div>
+
+<!-- ====== SCREEN: GAME ====== -->
+<div id="screen-game" class="screen min-h-screen flex flex-col p-3">
+  <!-- Top: HP Bars -->
+  <div class="flex items-start gap-3 mb-2">
+    <!-- Player 1 (left side, me or opponent) -->
+    <div id="game-p1" class="flex-1">
+      <div class="flex items-center gap-2 mb-1">
+        <div id="fighter-p1" class="fighter scale-[.6] origin-left"><div class="head"></div><div class="body"></div><div class="arm-l"></div><div class="arm-r"></div><div class="leg-l"></div><div class="leg-r"></div></div>
+        <div class="min-w-0">
+          <p id="p1-name" class="text-white font-bold text-sm truncate">---</p>
+          <div id="p1-combo" class="hidden combo-badge bg-orange-600 text-white text-xs mt-1">🔥 x0</div>
+        </div>
+        <div class="flex-1 mx-2">
+          <div class="hp-bar-bg">
+            <div id="p1-hp-fill" class="hp-bar-fill bg-red-500" style="width:100%"></div>
+            <div class="hp-bar-text"><span id="p1-hp-text">100</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-2xl font-bold text-slate-500 pt-3">VS</div>
+
+    <!-- Player 2 (right side) -->
+    <div id="game-p2" class="flex-1">
+      <div class="flex items-center gap-2 mb-1 flex-row-reverse">
+        <div id="fighter-p2" class="fighter scale-[.6] origin-right"><div class="head"></div><div class="body"></div><div class="arm-l"></div><div class="arm-r"></div><div class="leg-l"></div><div class="leg-r"></div></div>
+        <div class="min-w-0 text-right">
+          <p id="p2-name" class="text-white font-bold text-sm truncate">---</p>
+          <div id="p2-combo" class="hidden combo-badge bg-orange-600 text-white text-xs mt-1">🔥 x0</div>
+        </div>
+        <div class="flex-1 mx-2">
+          <div class="hp-bar-bg">
+            <div id="p2-hp-fill" class="hp-bar-fill bg-red-500" style="width:100%"></div>
+            <div class="hp-bar-text"><span id="p2-hp-text">100</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Waiting opponent overlay -->
+  <div id="waiting-opponent" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
+    <div class="text-center">
+      <div class="text-6xl mb-4 waiting-pulse">⏳</div>
+      <p class="text-white text-2xl font-bold">等待對手完成...</p>
+      <p class="text-slate-400 mt-2">對手正在作答</p>
+    </div>
+  </div>
+
+  <!-- Round + Layer info -->
+  <div class="text-center mb-2">
+    <div class="inline-flex items-center gap-3 bg-slate-800/50 px-4 py-1.5 rounded-full">
+      <span id="round-display" class="text-white font-bold">第 1 輪</span>
+      <span class="text-slate-600">|</span>
+      <div class="flex gap-1.5" id="layer-dots">
+        <div class="dot active" data-layer="1"></div>
+        <div class="dot pending" data-layer="2"></div>
+        <div class="dot pending" data-layer="3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Question Area -->
+  <div class="flex-1 flex items-center justify-center">
+    <div class="w-full max-w-lg">
+
+      <!-- ===== LAYER 1: Math Fill ===== -->
+      <div id="layer-1" class="layer space-y-6 text-center">
+        <p class="text-slate-400 text-sm">🖱️ 將正確數字拖曳到空格中</p>
+        <div id="l1-equation" class="flex items-center justify-center gap-2 text-5xl font-bold text-white">
+          <!-- Generated by JS -->
+        </div>
+        <div id="l1-numbers" class="flex flex-wrap justify-center gap-3 mt-6">
+          <!-- Generated by JS -->
+        </div>
+        <button id="l1-submit" onclick="submitLayer1()" disabled
+          class="py-3 px-10 rounded-xl bg-blue-600 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold text-lg transition">送出答案</button>
+      </div>
+
+      <!-- ===== LAYER 2: Multiple Choice ===== -->
+      <div id="layer-2" class="layer hidden space-y-6 text-center">
+        <p class="text-slate-400 text-sm">👆 選出正確答案</p>
+        <p id="l2-question" class="text-3xl font-bold text-white">---</p>
+        <div id="l2-options" class="flex flex-wrap justify-center gap-4">
+          <!-- Generated by JS -->
+        </div>
+        <button id="l2-submit" onclick="submitLayer2()" disabled
+          class="py-3 px-10 rounded-xl bg-blue-600 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold text-lg transition">送出答案</button>
+      </div>
+
+      <!-- ===== LAYER 3: Grid ===== -->
+      <div id="layer-3" class="layer hidden space-y-4 text-center">
+        <p class="text-slate-400 text-sm">🎯 先選棋子，再點格子</p>
+        <p id="l3-instruction" class="text-xl font-bold text-yellow-400">---</p>
+        <div id="l3-stones" class="flex justify-center gap-6 mb-3">
+          <button class="stone-btn bg-zinc-800 text-white" onclick="selectStone('black')">⚫ 黑子</button>
+          <button class="stone-btn bg-zinc-800 text-white" onclick="selectStone('white')">⚪ 白子</button>
+        </div>
+        <div class="flex justify-center">
+          <div id="l3-grid" class="inline-block bg-slate-800/50 p-2 rounded-xl">
+            <div class="grid grid-cols-6 gap-1">
+              <div></div>
+              <div class="text-center text-slate-500 font-bold text-sm">A</div>
+              <div class="text-center text-slate-500 font-bold text-sm">B</div>
+              <div class="text-center text-slate-500 font-bold text-sm">C</div>
+              <div class="text-center text-slate-500 font-bold text-sm">D</div>
+              <div class="text-center text-slate-500 font-bold text-sm">E</div>
+              <!-- Generated rows 1-5 -->
+            </div>
+          </div>
+        </div>
+        <button id="l3-submit" onclick="submitLayer3()" disabled
+          class="py-3 px-10 rounded-xl bg-blue-600 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold text-lg transition">送出答案</button>
+      </div>
+
+      <!-- ===== DAMAGE FEEDBACK ===== -->
+      <div id="round-result" class="hidden mt-4 text-center p-4 bg-slate-800/50 rounded-xl">
+        <p id="rr-text" class="text-lg font-bold text-white">---</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ====== SCREEN: RESULT ====== -->
+<div id="screen-result" class="screen min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-md w-full text-center space-y-6 slide-up">
+    <div id="result-icon" class="text-8xl"></div>
+    <h2 id="result-title" class="text-4xl font-bold text-white">---</h2>
+    <p id="result-subtitle" class="text-slate-400 text-lg">---</p>
+
+    <div class="bg-slate-800/50 rounded-2xl p-6 space-y-3">
+      <div class="flex justify-between text-white">
+        <span id="result-p1-name">---</span>
+        <span id="result-p1-hp">0</span>
+      </div>
+      <div class="flex justify-between text-white">
+        <span id="result-p2-name">---</span>
+        <span id="result-p2-hp">0</span>
+      </div>
+    </div>
+
+    <div class="flex gap-3 justify-center">
+      <button onclick="playAgain()"
+        class="py-3 px-8 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg transition">再玩一局</button>
+      <button onclick="backToLobby()"
+        class="py-3 px-8 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold text-lg transition">回到大廳</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== FEEDBACK OVERLAY ====== -->
+<div id="feedback-overlay" class="feedback-overlay">
+  <div class="feedback-icon"></div>
+</div>
+
+<script>
+// =====================================================
+// ⚙️ FIREBASE CONFIG
+// =====================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyB2kBo1ed166tPEJ_ML8ABvd-Sh_fEOo7M",
+  authDomain: "pk-213.firebaseapp.com",
+  databaseURL: "https://pk-213-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "pk-213",
+  storageBucket: "pk-213.firebasestorage.app",
+  messagingSenderId: "573835717500",
+  appId: "1:573835717500:web:e37a8e5deb062419f7d2f9"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// =====================================================
+// COLOR MAP
+// =====================================================
+const COLOR_MAP = {
+  red:    { bg: 'bg-red-500',    hex: '#ef4444',  weapon: '👊' },
+  blue:   { bg: 'bg-blue-500',   hex: '#3b82f6',  weapon: '🗡️' },
+  emerald:{ bg: 'bg-emerald-500',hex: '#10b981',  weapon: '🏹' },
+  purple: { bg: 'bg-purple-500', hex: '#a855f7',  weapon: '🔮' },
+  orange: { bg: 'bg-orange-500', hex: '#f97316',  weapon: '⚔️' },
+  pink:   { bg: 'bg-pink-500',   hex: '#ec4899',  weapon: '💫' },
+};
+
+// =====================================================
+// GAME STATE
+// =====================================================
+const G = {
+  playerId: null,       // 'p1' or 'p2'
+  playerName: '',
+  playerColor: 'blue',
+  roomCode: null,
+  roomRef: null,
+  listeners: [],        // cleanup
+
+  maxHp: 100,
+  hp: 100,
+  combo: 0,
+
+  currentRound: 0,
+  currentLayer: 1,
+  questions: null,      // { layer1, layer2, layer3 }
+
+  // Local answer state
+  l1Answer: null,
+  l2Answer: null,
+  l3Stone: null,
+  l3Cell: null,
+
+  // Is it my turn to generate questions? (host = p1)
+  isHost: false,
+  roundDone: false,     // have I submitted this round?
+
+  opponentName: '',
+  opponentColor: 'red',
+  opponentHp: 100,
+  opponentCombo: 0,
+};
+
+// =====================================================
+// SCREEN MANAGEMENT
+// =====================================================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showError(msg) {
+  const el = document.getElementById('lobby-error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 4000);
+}
+
+// =====================================================
+// LOBBY
+// =====================================================
+let joinMode = false;
+
+function toggleJoin() {
+  joinMode = !joinMode;
+  document.getElementById('join-input-area').classList.toggle('hidden', !joinMode);
+}
+
+document.getElementById('input-room-code').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmJoin();
+});
+
+document.getElementById('btn-join-room').addEventListener('click', function() {
+  const name = document.getElementById('input-nickname').value.trim();
+  if (!name) { showError('請先輸入暱稱'); return; }
+  G.playerName = name;
+  G.isHost = false;
+  G.playerId = 'p2';
+  toggleJoin();
+});
+
+function updateHpDisplay() {
+  document.getElementById('hp-display').textContent = document.getElementById('hp-slider').value;
+}
+
+function createRoom() {
+  const name = document.getElementById('input-nickname').value.trim();
+  if (!name) { showError('請輸入暱稱'); return; }
+
+  G.playerName = name;
+  G.maxHp = parseInt(document.getElementById('hp-slider').value);
+  G.isHost = true;
+  G.playerId = 'p1';
+
+  // Generate 4-char room code
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+
+  G.roomCode = code;
+  G.roomRef = db.ref('rooms/' + code);
+
+  // Check if code already exists
+  G.roomRef.once('value').then(snap => {
+    if (snap.exists()) { showError('代號衝突，請重試'); return; }
+
+    G.roomRef.set({
+      status: 'waiting',
+      maxHp: G.maxHp,
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      players: {
+        p1: { name: G.playerName, color: G.playerColor, hp: G.maxHp, combo: 0, round: 0 },
+        p2: { name: '', color: '', hp: G.maxHp, combo: 0, round: 0 }
+      },
+      questions: {},
+      roundResults: {},
+      winner: null
+    }).then(() => {
+      enterWaitingRoom();
+    });
+  });
+}
+
+function confirmJoin() {
+  const code = document.getElementById('input-room-code').value.trim().toUpperCase();
+  if (!code || code.length !== 4) { showError('請輸入 4 碼房間代號'); return; }
+
+  G.roomCode = code;
+  G.roomRef = db.ref('rooms/' + code);
+
+  G.roomRef.once('value').then(snap => {
+    if (!snap.exists()) { showError('房間不存在'); return; }
+    const data = snap.val();
+    if (data.status !== 'waiting') { showError('房間已滿或已開始'); return; }
+    if (data.players.p2.name) { showError('房間已滿'); return; }
+
+    // Join as p2
+    G.playerId = 'p2';
+    G.maxHp = data.maxHp;
+    G.roomRef.child('players/p2').set({
+      name: G.playerName,
+      color: G.playerColor,
+      hp: data.maxHp,
+      combo: 0,
+      round: 0
+    }).then(() => {
+      // Update status to started
+      G.roomRef.child('status').set('started');
+      enterWaitingRoom();
+    });
+  });
+}
+
+function cancelRoom() {
+  if (G.roomRef) {
+    if (G.isHost) {
+      G.roomRef.remove();
+    } else {
+      G.roomRef.child('players/p2').set({ name: '', color: '', hp: G.maxHp, combo: 0, round: 0 });
+      G.roomRef.child('status').set('waiting');
+    }
+  }
+  cleanupFirebase();
+  G.roomRef = null;
+  G.roomCode = null;
+  showScreen('lobby');
+}
+
+function selectColor(color) {
+  G.playerColor = color;
+  document.querySelectorAll('.color-opt').forEach(el => {
+    el.classList.toggle('border-white', el.dataset.color === color);
+    el.classList.toggle('border-transparent', el.dataset.color !== color);
+  });
+
+  // Update fighter preview in waiting room
+  if (G.playerId && G.roomCode) {
+    applyFighterColor('fighter-waiting-p1', G.playerColor);
+    G.roomRef.child('players/' + G.playerId + '/color').set(color);
+  }
+}
+
+// =====================================================
+// WAITING ROOM
+// =====================================================
+function enterWaitingRoom() {
+  showScreen('screen-waiting');
+  document.getElementById('room-code-display').textContent = G.roomCode;
+
+  // Show my name
+  if (G.playerId === 'p1') {
+    document.getElementById('waiting-p1-name').textContent = G.playerName;
+    applyFighterColor('fighter-waiting-p1', G.playerColor);
+  } else {
+    document.getElementById('waiting-p1-name').textContent = '等待房主...';
+  }
+
+  // Generate QR code
+  const url = window.location.origin + window.location.pathname + '?join=' + G.roomCode;
+  document.getElementById('qrcode-placeholder').innerHTML =
+    `<img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}" alt="QR Code" class="rounded-xl">`;
+
+  // Listen for room changes
+  const ref = G.roomRef;
+  const listener = ref.on('value', snap => {
+    if (!snap.exists()) {
+      // Room deleted
+      alert('房間已被關閉');
+      backToLobby();
+      return;
+    }
+    const data = snap.val();
+
+    // Update p1 display
+    if (data.players.p1) {
+      document.getElementById('waiting-p1-name').textContent = data.players.p1.name;
+      applyFighterColor('fighter-waiting-p1', data.players.p1.color || 'blue');
+    }
+
+    // Check if p2 has joined
+    if (data.players.p2 && data.players.p2.name) {
+      document.getElementById('waiting-p2').classList.remove('opacity-40');
+      const p2Name = document.getElementById('waiting-p2').querySelector('p');
+      p2Name.textContent = data.players.p2.name;
+      const p2Fighter = document.getElementById('waiting-p2').querySelector('.fighter');
+      applyFighterColorToEl(p2Fighter, data.players.p2.color || 'red');
+
+      // Store opponent info
+      const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
+      const opp = data.players[oppId];
+      if (opp && opp.name) {
+        G.opponentName = opp.name;
+        G.opponentColor = opp.color || 'red';
+      }
+
+      // After p2 joins, start the game
+      if (!G._gameStarted && data.players.p1 && data.players.p2 && data.players.p2.name) {
+        G._gameStarted = true;
+        setTimeout(() => startGame(data), 800);
+      }
+    }
+  });
+  G.listeners.push({ ref, listener, event: 'value' });
+}
+
+function applyFighterColor(id, color) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  applyFighterColorToEl(el, color);
+}
+
+function applyFighterColorToEl(el, color) {
+  if (!el) return;
+  const hex = COLOR_MAP[color]?.hex || '#3b82f6';
+  el.querySelectorAll('.head, .body, .arm-l, .arm-r, .leg-l, .leg-r').forEach(p => {
+    p.style.background = hex;
+  });
+  let weapon = el.querySelector('.weapon');
+  if (!weapon) {
+    weapon = document.createElement('div');
+    weapon.className = 'weapon';
+    el.appendChild(weapon);
+  }
+  weapon.textContent = COLOR_MAP[color]?.weapon || '👊';
+  weapon.style.top = '20px';
+  weapon.style.left = (color === 'red' || color === 'orange') ? '-5px' : 'auto';
+  weapon.style.right = (color !== 'red' && color !== 'orange') ? '-5px' : 'auto';
+}
+
+// =====================================================
+// GAME START
+// =====================================================
+function startGame(data) {
+  showScreen('screen-game');
+
+  // Initialize game state
+  const me = data.players[G.playerId];
+  const opp = data.players[G.playerId === 'p1' ? 'p2' : 'p1'];
+
+  G.hp = me.hp;
+  G.combo = me.combo;
+  G.maxHp = data.maxHp;
+  G.currentRound = 0;
+  G.opponentName = opp.name;
+  G.opponentColor = opp.color;
+  G.opponentHp = opp.hp;
+  G.opponentCombo = opp.combo;
+
+  // Setup UI
+  setupGameUI(me, opp);
+
+  // Listen for game state changes
+  cleanupFirebase();
+  startGameListeners();
+
+  // Start first round
+  setTimeout(() => nextRound(), 500);
+}
+
+function setupGameUI(me, opp) {
+  const p1El = document.getElementById('game-p1');
+  const p2El = document.getElementById('game-p2');
+
+  if (G.playerId === 'p1') {
+    document.getElementById('p1-name').textContent = me.name;
+    document.getElementById('p2-name').textContent = opp.name;
+    applyFighterColorToEl(document.querySelector('#fighter-p1'), G.playerColor);
+    applyFighterColorToEl(document.querySelector('#fighter-p2'), G.opponentColor);
+  } else {
+    document.getElementById('p1-name').textContent = opp.name;
+    document.getElementById('p2-name').textContent = me.name;
+    applyFighterColorToEl(document.querySelector('#fighter-p1'), G.opponentColor);
+    applyFighterColorToEl(document.querySelector('#fighter-p2'), G.playerColor);
+
+    // Swap HP bar labels visually — we keep p1 on left, p2 on right always
+  }
+
+  updateHpDisplay();
+  updateComboDisplay();
+}
+
+// =====================================================
+// ROUND MANAGEMENT
+// =====================================================
+function nextRound() {
+  G.currentRound++;
+  G.currentLayer = 1;
+  G.roundDone = false;
+  G._advancingRound = false;
+  G.questions = null;
+
+  document.getElementById('round-display').textContent = `第 ${G.currentRound} 輪`;
+  document.getElementById('waiting-opponent').classList.add('hidden');
+  document.getElementById('round-result').classList.add('hidden');
+
+  // Update round counter in Firebase
+  G.roomRef.child('players/' + G.playerId + '/round').set(G.currentRound);
+
+  if (G.isHost) {
+    // Host generates questions
+    G.questions = generateQuestions(G.currentRound);
+    G.roomRef.child('questions/' + G.currentRound).set(G.questions).then(() => {
+      showLayer(1);
+    });
+  } else {
+    // Wait for host to publish questions
+    const qRef = G.roomRef.child('questions/' + G.currentRound);
+    const qListener = qRef.on('value', snap => {
+      if (snap.exists()) {
+        G.questions = snap.val();
+        showLayer(1);
+        qRef.off('value', qListener);
+      }
+    });
+    // Timeout fallback
+    setTimeout(() => qRef.off('value', qListener), 15000);
+  }
+}
+
+// =====================================================
+// QUESTION GENERATION
+// =====================================================
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function generateQuestions(round) {
+  // Use round as a pseudo-seed influence
+  const seed = round * 17;
+
+  // Layer 1: Simple math fill-in
+  const l1 = generateLayer1(seed);
+
+  // Layer 2: Comparison question
+  const l2 = generateLayer2(seed);
+
+  // Layer 3: Grid coordinate
+  const l3 = generateLayer3(seed);
+
+  return { layer1: l1, layer2: l2, layer3: l3 };
+}
+
+function generateLayer1(seed) {
+  const a = randInt(1, 9);
+  const b = randInt(1, 9);
+  const op = Math.random() > 0.5 ? '+' : '-';
+  const parts = []; // 0: first num, 1: op, 2: second num, 3: equals, 4: result
+  let result, answer, blankPos;
+
+  if (op === '+') {
+    result = a + b;
+    blankPos = randInt(0, 2); // 0: first, 1: second, 2: result
+    if (blankPos === 0) { answer = a; }
+    else if (blankPos === 1) { answer = b; }
+    else { answer = result; }
+  } else {
+    // Ensure positive result
+    const big = Math.max(a + 1, b + 1);
+    const small = randInt(1, Math.max(1, big - 2));
+    result = big - small;
+    blankPos = randInt(0, 2);
+    if (blankPos === 0) { answer = big; }
+    else if (blankPos === 1) { answer = small; }
+    else { answer = result; }
+  }
+
+  // Ensure answer is 1-10
+  if (answer < 1) answer = randInt(1, 5);
+  if (answer > 10) answer = randInt(5, 10);
+
+  // Determine equation parts for display
+  let eqA, eqB, eqOp, eqResult;
+  if (op === '+') {
+    eqA = a; eqB = b; eqOp = '+'; eqResult = result;
+  } else {
+    if (blankPos === 0) { eqA = result; eqB = small; eqOp = '-'; eqResult = big; }
+    else if (blankPos === 1) { eqA = big; eqB = result; eqOp = '-'; eqResult = small; }
+    else { eqA = big; eqB = small; eqOp = '-'; eqResult = result; }
+  }
+
+  return {
+    a: eqA, b: eqB, op: eqOp, result: eqResult,
+    blankPos: blankPos,
+    answer: answer
+  };
+}
+
+function generateLayer2(seed) {
+  const low = randInt(1, 15);
+  const range = randInt(3, 10);
+  const high = low + range;
+  let answer = randInt(low + 1, high - 1);
+
+  // Generate wrong options
+  const wrongs = new Set();
+  wrongs.add(low);
+  wrongs.add(high);
+  // Add random distractors
+  while (wrongs.size < 3) {
+    const d = randInt(Math.max(1, low - 5), high + 5);
+    if (d !== answer) wrongs.add(d);
+  }
+
+  const options = shuffle([answer, ...wrongs]);
+  return {
+    question: `比 ${low} 大又比 ${high} 小的數字是？`,
+    options: options,
+    answer: answer
+  };
+}
+
+function generateLayer3(seed) {
+  const col = String.fromCharCode(65 + randInt(0, 4)); // A-E
+  const row = randInt(1, 5);
+  const stone = Math.random() > 0.5 ? 'black' : 'white';
+  const stoneName = stone === 'black' ? '黑子' : '白子';
+  return {
+    stone: stone,
+    target: col + row,
+    instruction: `把 ${stoneName} 放在 ${col}${row}`
+  };
+}
+
+// =====================================================
+// LAYER DISPLAY
+// =====================================================
+function showLayer(num) {
+  G.currentLayer = num;
+  document.querySelectorAll('.layer').forEach(el => el.classList.add('hidden'));
+  document.getElementById(`layer-${num}`).classList.remove('hidden');
+
+  // Update dots
+  document.querySelectorAll('.dot').forEach(d => {
+    const layer = parseInt(d.dataset.layer);
+    d.className = 'dot';
+    if (layer < num) d.classList.add('done');
+    else if (layer === num) d.classList.add('active');
+    else d.classList.add('pending');
+  });
+
+  // Reset submit buttons
+  document.querySelectorAll('.layer [id$="-submit"]').forEach(b => b.disabled = true);
+
+  if (num === 1) renderLayer1();
+  else if (num === 2) renderLayer2();
+  else if (num === 3) renderLayer3();
+}
+
+function showFeedback(ok) {
+  const overlay = document.getElementById('feedback-overlay');
+  const icon = overlay.querySelector('.feedback-icon');
+  icon.textContent = ok ? '✅' : '❌';
+  icon.style.color = ok ? '#22c55e' : '#ef4444';
+  overlay.classList.add('show');
+  setTimeout(() => overlay.classList.remove('show'), 800);
+}
+
+// =====================================================
+// LAYER 1: Math Fill Drag & Drop
+// =====================================================
+function renderLayer1() {
+  const q = G.questions.layer1;
+  const eq = document.getElementById('l1-equation');
+  const parts = [q.a, q.op, q.b, '=', q.result];
+  const blankIdx = q.blankPos;
+
+  eq.innerHTML = '';
+  parts.forEach((p, i) => {
+    if (i === blankIdx) {
+      const zone = document.createElement('span');
+      zone.className = 'drop-zone';
+      zone.id = 'l1-drop';
+      zone.textContent = '?';
+      eq.appendChild(zone);
+    } else {
+      const span = document.createElement('span');
+      span.textContent = p;
+      eq.appendChild(span);
+    }
+    if (i < parts.length - 1) {
+      const space = document.createElement('span');
+      space.textContent = ' ';
+      eq.appendChild(space);
+    }
+  });
+
+  // Numbers 1-10
+  const nums = document.getElementById('l1-numbers');
+  nums.innerHTML = '';
+  for (let i = 1; i <= 10; i++) {
+    const div = document.createElement('div');
+    div.className = 'drag-number bg-slate-700 text-white';
+    div.textContent = i;
+    div.dataset.value = i;
+    div.draggable = true;
+
+    // Desktop drag
+    div.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', i);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    // Touch drag
+    let touchClone = null;
+    div.addEventListener('touchstart', e => {
+      const touch = e.touches[0];
+      touchClone = div.cloneNode(true);
+      touchClone.style.position = 'fixed';
+      touchClone.style.pointerEvents = 'none';
+      touchClone.style.zIndex = '999';
+      touchClone.style.width = '50px';
+      touchClone.style.height = '50px';
+      touchClone.style.left = (touch.clientX - 25) + 'px';
+      touchClone.style.top = (touch.clientY - 25) + 'px';
+      touchClone.className = 'drag-number bg-blue-600 text-white dragging';
+      document.body.appendChild(touchClone);
+      e.preventDefault();
+    }, { passive: false });
+
+    div.addEventListener('touchmove', e => {
+      if (!touchClone) return;
+      const touch = e.touches[0];
+      touchClone.style.left = (touch.clientX - 25) + 'px';
+      touchClone.style.top = (touch.clientY - 25) + 'px';
+      e.preventDefault();
+    }, { passive: false });
+
+    div.addEventListener('touchend', e => {
+      if (!touchClone) return;
+      document.body.removeChild(touchClone);
+      touchClone = null;
+      const drop = document.getElementById('l1-drop');
+      if (drop) {
+        const rect = drop.getBoundingClientRect();
+        const touch = e.changedTouches[0];
+        if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+            touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+          fillDropZone(parseInt(div.dataset.value));
+        }
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    // Click to fill (alternative for mobile)
+    div.addEventListener('click', () => {
+      fillDropZone(parseInt(div.dataset.value));
+    });
+
+    nums.appendChild(div);
+  }
+
+  // Drop zone events (desktop)
+  const drop = document.getElementById('l1-drop');
+  drop?.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
+  drop?.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+  drop?.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('drag-over');
+    const val = parseInt(e.dataTransfer.getData('text/plain'));
+    fillDropZone(val);
+  });
+
+  G.l1Answer = null;
+  document.getElementById('l1-submit').disabled = true;
+}
+
+function fillDropZone(val) {
+  const drop = document.getElementById('l1-drop');
+  if (!drop) return;
+  drop.textContent = val;
+  drop.classList.add('filled');
+  G.l1Answer = val;
+  document.getElementById('l1-submit').disabled = false;
+}
+
+function submitLayer1() {
+  if (G.l1Answer === null) return;
+  const correct = G.l1Answer === G.questions.layer1.answer;
+  showFeedback(correct);
+  if (correct) {
+    G.l1Answer = 'correct';
+  } else {
+    G.l1Answer = 'wrong';
+  }
+  document.getElementById('l1-submit').disabled = true;
+  setTimeout(() => showLayer(2), 1000);
+}
+
+// =====================================================
+// LAYER 2: Multiple Choice
+// =====================================================
+function renderLayer2() {
+  const q = G.questions.layer2;
+  document.getElementById('l2-question').textContent = q.question;
+
+  const container = document.getElementById('l2-options');
+  container.innerHTML = '';
+  G.l2Answer = null;
+
+  q.options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'opt-btn';
+    btn.textContent = opt;
+    btn.dataset.value = opt;
+    btn.onclick = () => {
+      container.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      G.l2Answer = opt;
+      document.getElementById('l2-submit').disabled = false;
+    };
+    container.appendChild(btn);
+  });
+
+  document.getElementById('l2-submit').disabled = true;
+}
+
+function submitLayer2() {
+  if (G.l2Answer === null) return;
+  const q = G.questions.layer2;
+  const correct = G.l2Answer === q.answer;
+
+  // Highlight correct/wrong
+  document.querySelectorAll('#l2-options .opt-btn').forEach(b => {
+    const val = parseInt(b.dataset.value);
+    if (val === q.answer) b.classList.add('correct');
+    else if (val === G.l2Answer && !correct) b.classList.add('wrong');
+  });
+
+  showFeedback(correct);
+  G.l2Answer = correct ? 'correct' : 'wrong';
+  document.getElementById('l2-submit').disabled = true;
+  setTimeout(() => showLayer(3), 1000);
+}
+
+// =====================================================
+// LAYER 3: Grid
+// =====================================================
+function renderLayer3() {
+  const q = G.questions.layer3;
+  document.getElementById('l3-instruction').textContent = q.instruction;
+
+  G.l3Stone = null;
+  G.l3Cell = null;
+
+  // Reset stone buttons
+  document.querySelectorAll('.stone-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('l3-submit').disabled = true;
+
+  // Build grid
+  const grid = document.getElementById('l3-grid');
+  const container = grid.querySelector('.grid');
+  if (!container) {
+    // Rebuild
+    grid.innerHTML = '';
+    const newGrid = document.createElement('div');
+    newGrid.className = 'grid grid-cols-6 gap-1';
+    grid.appendChild(newGrid);
+    buildGrid(newGrid);
+  } else {
+    container.innerHTML = '';
+    buildGrid(container);
+  }
+}
+
+function buildGrid(container) {
+  // Header
+  const empty = document.createElement('div');
+  container.appendChild(empty);
+  for (let c = 0; c < 5; c++) {
+    const h = document.createElement('div');
+    h.className = 'text-center text-slate-500 font-bold text-sm';
+    h.textContent = String.fromCharCode(65 + c);
+    container.appendChild(h);
+  }
+
+  // Rows 1-5
+  for (let r = 1; r <= 5; r++) {
+    const label = document.createElement('div');
+    label.className = 'text-center text-slate-500 font-bold text-sm flex items-center justify-center';
+    label.textContent = r;
+    container.appendChild(label);
+    for (let c = 0; c < 5; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell';
+      const col = String.fromCharCode(65 + c);
+      cell.dataset.col = col;
+      cell.dataset.row = r;
+      cell.onclick = () => selectCell(cell, col, r);
+      container.appendChild(cell);
+    }
+  }
+}
+
+function selectStone(type) {
+  G.l3Stone = type;
+  document.querySelectorAll('.stone-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.stone-btn').forEach(b => {
+    if ((type === 'black' && b.textContent.includes('黑')) ||
+        (type === 'white' && b.textContent.includes('白'))) {
+      b.classList.add('selected');
+    }
+  });
+  checkL3Ready();
+}
+
+function selectCell(el, col, row) {
+  // Clear previous selection
+  document.querySelectorAll('.grid-cell').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  G.l3Cell = col + row;
+  checkL3Ready();
+}
+
+function checkL3Ready() {
+  document.getElementById('l3-submit').disabled = !(G.l3Stone && G.l3Cell);
+}
+
+function submitLayer3() {
+  if (!G.l3Stone || !G.l3Cell) return;
+  const q = G.questions.layer3;
+  const correct = G.l3Stone === q.stone && G.l3Cell === q.target;
+
+  // Highlight grid
+  document.querySelectorAll('.grid-cell').forEach(c => {
+    const cellId = c.dataset.col + c.dataset.row;
+    if (cellId === q.target) c.classList.add('correct');
+    else if (cellId === G.l3Cell && !correct) c.classList.add('wrong');
+  });
+
+  showFeedback(correct);
+  G.l3Answer = correct ? 'correct' : 'wrong';
+  document.getElementById('l3-submit').disabled = true;
+
+  // Finish round
+  setTimeout(() => finishRound(), 1000);
+}
+
+// =====================================================
+// ROUND FINISH
+// =====================================================
+function finishRound() {
+  const l1ok = G.l1Answer === 'correct';
+  const l2ok = G.l2Answer === 'correct';
+  const l3ok = G.l3Answer === 'correct';
+  const allCorrect = l1ok && l2ok && l3ok;
+
+  G.roundDone = true;
+
+  // Calculate damage
+  const baseDmg = 5;
+  const comboBonus = 2 * G.combo;
+  const damage = baseDmg + comboBonus;
+
+  // Write result to Firebase
+  const resultRef = G.roomRef.child('roundResults/' + G.currentRound + '/' + G.playerId);
+  resultRef.set({
+    status: 'done',
+    allCorrect: allCorrect,
+    combo: G.combo
+  });
+
+  // Apply damage
+  const target = allCorrect ? 'opponent' : 'self';
+  const hpRef = G.roomRef.child('players');
+
+  hpRef.transaction(current => {
+    if (!current) return current;
+    const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
+
+    if (target === 'opponent') {
+      current[oppId].hp = Math.max(0, current[oppId].hp - damage);
+      current[G.playerId].combo = (current[G.playerId].combo || 0) + 1;
+    } else {
+      current[G.playerId].hp = Math.max(0, current[G.playerId].hp - damage);
+      current[G.playerId].combo = 0;
+    }
+    return current;
+  }, (error, committed, snap) => {
+    if (committed && snap) {
+      const players = snap.val();
+      G.hp = players[G.playerId].hp;
+      G.combo = players[G.playerId].combo || 0;
+      G.opponentHp = players[G.playerId === 'p1' ? 'p2' : 'p1'].hp;
+      updateHpDisplay();
+      updateComboDisplay();
+
+      // Show round result
+      const rr = document.getElementById('round-result');
+      rr.classList.remove('hidden');
+      if (allCorrect) {
+        document.getElementById('rr-text').innerHTML = `🔥 全對！你對對手造成 <span class="text-red-400">${damage}</span> 點傷害！`;
+      } else {
+        document.getElementById('rr-text').innerHTML = `💔 答錯了... 你受到 <span class="text-red-400">${damage}</span> 點傷害`;
+      }
+
+      // Check if waiting for opponent (only host advances the round)
+      if (G._advancingRound) return;
+      const oppStatus = G.roomRef.child('roundResults/' + G.currentRound + '/' + (G.playerId === 'p1' ? 'p2' : 'p1'));
+      oppStatus.once('value', oppSnap => {
+        if (G._advancingRound) return;
+        const bothDone = oppSnap.exists() && oppSnap.val().status === 'done';
+        if (bothDone) {
+          if (G.isHost) {
+            G._advancingRound = true;
+            setTimeout(() => {
+              if (G.hp > 0 && G.opponentHp > 0) {
+                G._advancingRound = false;
+                nextRound();
+              }
+            }, 1500);
+          } else {
+            // p2 waits for host's next questions
+            document.getElementById('rr-text').innerHTML += '<br><span class="text-slate-400 text-sm">等待房主開啟下一輪...</span>';
+            // Listen for host's questions for next round
+            const nextR = G.currentRound + 1;
+            const qRef = G.roomRef.child('questions/' + nextR);
+            const qListener = qRef.on('value', function qCb(snap) {
+              if (snap.exists()) {
+                qRef.off('value', qListener);
+                G.currentRound = nextR - 1;
+                nextRound();
+              }
+            });
+            setTimeout(() => qRef.off('value', qListener), 60000);
+          }
+        } else {
+          document.getElementById('waiting-opponent').classList.remove('hidden');
+          const waitListener = oppStatus.on('value', waitSnap => {
+            if (waitSnap.exists() && waitSnap.val().status === 'done') {
+              oppStatus.off('value', waitListener);
+              if (G._advancingRound) return;
+              document.getElementById('waiting-opponent').classList.add('hidden');
+              if (G.isHost) {
+                G._advancingRound = true;
+                setTimeout(() => {
+                  if (G.hp > 0 && G.opponentHp > 0) {
+                    G._advancingRound = false;
+                    nextRound();
+                  }
+                }, 1000);
+              } else {
+                const nextR = G.currentRound + 1;
+                const qRef = G.roomRef.child('questions/' + nextR);
+                const qListener = qRef.on('value', function qCb(snap) {
+                  if (snap.exists()) {
+                    qRef.off('value', qListener);
+                    G.currentRound = nextR - 1;
+                    nextRound();
+                  }
+                });
+                setTimeout(() => qRef.off('value', qListener), 60000);
+              }
+            }
+          });
+        }
+      });
+    }
+  });
+}
+
+// =====================================================
+// UI UPDATES
+// =====================================================
+function updateHpDisplay() {
+  const p1Id = G.playerId === 'p1' ? 'p1' : 'p2';
+  const p2Id = G.playerId === 'p1' ? 'p2' : 'p1';
+
+  const myHp = G.hp;
+  const oppHp = G.opponentHp;
+  const maxHp = G.maxHp;
+
+  // My HP bar
+  const myFill = document.getElementById(p1Id === 'p1' ? 'p1-hp-fill' : 'p2-hp-fill');
+  const myText = document.getElementById(p1Id === 'p1' ? 'p1-hp-text' : 'p2-hp-text');
+  const myPct = Math.max(0, (myHp / maxHp) * 100);
+  myFill.style.width = myPct + '%';
+  myFill.style.background = myPct > 50 ? '#22c55e' : myPct > 25 ? '#eab308' : '#ef4444';
+  myText.textContent = Math.max(0, myHp);
+
+  // Opponent HP bar
+  const oppFill = document.getElementById(p2Id === 'p1' ? 'p1-hp-fill' : 'p2-hp-fill');
+  const oppText = document.getElementById(p2Id === 'p1' ? 'p1-hp-text' : 'p2-hp-text');
+  const oppPct = Math.max(0, (oppHp / maxHp) * 100);
+  oppFill.style.width = oppPct + '%';
+  oppFill.style.background = oppPct > 50 ? '#22c55e' : oppPct > 25 ? '#eab308' : '#ef4444';
+  oppText.textContent = Math.max(0, oppHp);
+}
+
+function updateComboDisplay() {
+  const p1Combo = document.getElementById('p1-combo');
+  const p2Combo = document.getElementById('p2-combo');
+
+  if (G.playerId === 'p1') {
+    p1Combo.classList.toggle('hidden', G.combo === 0);
+    p1Combo.textContent = `🔥 x${G.combo}`;
+    p2Combo.classList.toggle('hidden', G.opponentCombo === 0);
+    p2Combo.textContent = `🔥 x${G.opponentCombo}`;
+  } else {
+    p2Combo.classList.toggle('hidden', G.combo === 0);
+    p2Combo.textContent = `🔥 x${G.combo}`;
+    p1Combo.classList.toggle('hidden', G.opponentCombo === 0);
+    p1Combo.textContent = `🔥 x${G.opponentCombo}`;
+  }
+}
+
+// =====================================================
+// GAME OVER
+// =====================================================
+function endGame(players) {
+  const p1Hp = players.p1.hp;
+  const p2Hp = players.p2.hp;
+  let winner = null;
+  if (p1Hp <= 0 && p2Hp <= 0) winner = 'draw';
+  else if (p1Hp <= 0) winner = 'p2';
+  else if (p2Hp <= 0) winner = 'p1';
+
+  if (G.isHost && G.roomRef) {
+    G.roomRef.child('winner').set(winner);
+  }
+
+  cleanupFirebase();
+  showScreen('screen-result');
+
+  const isWinner = (winner === G.playerId);
+  const isDraw = winner === 'draw';
+
+  document.getElementById('result-icon').textContent = isDraw ? '🤝' : isWinner ? '🏆' : '💀';
+  document.getElementById('result-title').textContent = isDraw ? '平手！' : isWinner ? '你贏了！' : '你輸了...';
+  document.getElementById('result-subtitle').textContent = isDraw ? '雙方都倒下了！' : isWinner ? '精彩表現！' : '下次再加油！';
+
+  document.getElementById('result-p1-name').textContent = (players.p1.name || '玩家1') + (winner === 'p1' ? ' 👑' : '');
+  document.getElementById('result-p1-hp').textContent = Math.max(0, players.p1.hp) + '/' + G.maxHp;
+  document.getElementById('result-p2-name').textContent = (players.p2.name || '玩家2') + (winner === 'p2' ? ' 👑' : '');
+  document.getElementById('result-p2-hp').textContent = Math.max(0, players.p2.hp) + '/' + G.maxHp;
+
+  // Both players listen for game reset (play again by either player)
+  listenForGameReset();
+}
+
+function listenForGameReset() {
+  if (!G.roomRef) return;
+  const resetListener = G.roomRef.on('value', snap => {
+    if (!snap.exists()) { backToLobby(); return; }
+    const data = snap.val();
+    if (data.winner === null && data.status === 'started') {
+      // Game was reset (host pressed play again)
+      G.roomRef.off('value', resetListener);
+      G.roomRef.child('players/' + G.playerId).once('value', pSnap => {
+        if (!pSnap.exists()) return;
+        const me = pSnap.val();
+        const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
+        G.roomRef.child('players/' + oppId).once('value', oSnap => {
+          if (!oSnap.exists()) return;
+          const opp = oSnap.val();
+          G.currentRound = 0;
+          G.combo = me.combo || 0;
+          G.hp = me.hp;
+          G.opponentHp = opp.hp;
+          G.opponentName = opp.name;
+          G.opponentColor = opp.color;
+          showScreen('screen-game');
+          setupGameUI(me, opp);
+          startGameListeners();
+          setTimeout(() => nextRound(), 500);
+        });
+      });
+    }
+  });
+  G.listeners.push({ ref: G.roomRef, listener: resetListener, event: 'value' });
+}
+
+function startGameListeners() {
+  // Listen for player HP changes
+  const pRef = G.roomRef.child('players');
+  const pListener = pRef.on('value', snap => {
+    if (!snap.exists()) return;
+    const players = snap.val();
+    if (players[G.playerId]) {
+      G.hp = players[G.playerId].hp;
+      G.combo = players[G.playerId].combo || 0;
+      updateHpDisplay();
+      updateComboDisplay();
+    }
+    const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
+    if (players[oppId]) {
+      G.opponentHp = players[oppId].hp;
+      G.opponentCombo = players[oppId].combo || 0;
+      updateHpDisplay();
+    }
+    if (G.hp <= 0 || G.opponentHp <= 0) {
+      endGame(players);
+    }
+  });
+  G.listeners.push({ ref: pRef, listener: pListener, event: 'value' });
+
+  // Listen for round results to update waiting state
+  const rrRef = G.roomRef.child('roundResults');
+  const rrListener = rrRef.on('value', snap => {
+    if (!snap.exists()) return;
+    const results = snap.val();
+    const roundStr = String(G.currentRound);
+    if (results[roundStr] && G.currentRound > 0) {
+      const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
+      if (results[roundStr][oppId]?.status === 'done' && !G._advancingRound) {
+        document.getElementById('waiting-opponent').classList.add('hidden');
+      }
+    }
+  });
+  G.listeners.push({ ref: rrRef, listener: rrListener, event: 'value' });
+}
+
+function playAgain() {
+  if (G.isHost) {
+    const resetData = {
+      status: 'started',
+      maxHp: G.maxHp,
+      questions: {},
+      roundResults: {},
+      winner: null,
+      players: {
+        p1: { name: G.playerName, color: G.playerColor, hp: G.maxHp, combo: 0, round: 0 },
+        p2: { name: G.opponentName, color: G.opponentColor, hp: G.maxHp, combo: 0, round: 0 }
+      }
+    };
+    G.roomRef.update(resetData).then(() => {
+      G.currentRound = 0;
+      G.combo = 0;
+      G.hp = G.maxHp;
+      G.opponentHp = G.maxHp;
+      G._gameStarted = true;
+      showScreen('screen-game');
+      cleanupFirebase();
+      startGameListeners();
+      setupGameUI(
+        { name: G.playerName, color: G.playerColor, hp: G.maxHp, combo: 0 },
+        { name: G.opponentName, color: G.opponentColor, hp: G.maxHp, combo: 0 }
+      );
+      setTimeout(() => nextRound(), 500);
+    });
+  } else {
+    G.roomRef.child('players/p2').update({ hp: G.maxHp, combo: 0, round: 0 });
+    G.currentRound = 0;
+    G.combo = 0;
+    G.hp = G.maxHp;
+    G.opponentHp = G.maxHp;
+    showScreen('screen-game');
+    cleanupFirebase();
+    startGameListeners();
+    // Wait for host to reset game state (winner becomes null)
+    const wRef = G.roomRef.child('winner');
+    const wListener = wRef.on('value', function wCallback(wSnap) {
+      if (wSnap.val() === null) {
+        wRef.off('value', wCallback);
+        // Wait for questions to appear
+        const qRef = G.roomRef.child('questions/1');
+        const qCallback = qRef.on('value', function qCb(qSnap) {
+          if (qSnap.exists()) {
+            qRef.off('value', qCallback);
+            setTimeout(() => nextRound(), 500);
+          }
+        });
+        setTimeout(() => qRef.off('value', qCallback), 20000);
+      }
+    });
+  }
+}
+
+function backToLobby() {
+  cleanupFirebase();
+  if (G.roomRef) {
+    if (G.isHost) G.roomRef.remove();
+    else G.roomRef.child('players/p2').set({ name: '', color: '', hp: G.maxHp, combo: 0, round: 0 });
+  }
+  G.roomRef = null;
+  G.roomCode = null;
+  G._gameStarted = false;
+  showScreen('lobby');
+}
+
+// =====================================================
+// CLEANUP
+// =====================================================
+function cleanupFirebase() {
+  G.listeners.forEach(({ ref, listener, event }) => {
+    try { ref.off(event, listener); } catch(e) {}
+  });
+  G.listeners = [];
+}
+
+// =====================================================
+// AUTO-JOIN FROM URL
+// =====================================================
+document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const joinCode = params.get('join');
+  if (joinCode && joinCode.length === 4) {
+    document.getElementById('input-room-code').value = joinCode.toUpperCase();
+    // Prompt for nickname and auto-join
+    const name = prompt('請輸入你的暱稱：');
+    if (name && name.trim()) {
+      document.getElementById('input-nickname').value = name.trim();
+      G.playerName = name.trim();
+      confirmJoin();
+    }
+  }
+});
+</script>
+</body>
+</html>
