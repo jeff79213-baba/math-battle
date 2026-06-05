@@ -485,8 +485,6 @@ function createRoom() {
         p1: { name: G.playerName, color: G.playerColor, hp: G.maxHp, combo: 0, round: 0 },
         p2: { name: '', color: '', hp: G.maxHp, combo: 0, round: 0 }
       },
-      questions: {},
-      roundResults: {},
       winner: null
     }).then(() => {
       enterWaitingRoom();
@@ -706,28 +704,9 @@ function nextRound() {
   document.getElementById('waiting-opponent').classList.add('hidden');
   document.getElementById('round-result').classList.add('hidden');
 
-  // Update round counter in Firebase
-  G.roomRef.child('players/' + G.playerId + '/round').set(G.currentRound);
-
-  if (G.isHost) {
-    // Host generates questions
-    G.questions = generateQuestions(G.currentRound);
-    G.roomRef.child('questions/' + G.currentRound).set(G.questions).then(() => {
-      showLayer(1);
-    });
-  } else {
-    // Wait for host to publish questions
-    const qRef = G.roomRef.child('questions/' + G.currentRound);
-    const qListener = qRef.on('value', snap => {
-      if (snap.exists()) {
-        G.questions = snap.val();
-        showLayer(1);
-        qRef.off('value', qListener);
-      }
-    });
-    // Timeout fallback
-    setTimeout(() => qRef.off('value', qListener), 15000);
-  }
+  // 各自產生題目，不需等對方
+  G.questions = generateQuestions(G.currentRound);
+  showLayer(1);
 }
 
 // =====================================================
@@ -1166,29 +1145,18 @@ function finishRound() {
   const l3ok = G.l3Answer === 'correct';
   const allCorrect = l1ok && l2ok && l3ok;
 
-  G.roundDone = true;
+  G._advancingRound = false;
 
-  // Calculate damage
   const baseDmg = 5;
   const comboBonus = 2 * G.combo;
   const damage = baseDmg + comboBonus;
 
-  // Write result to Firebase
-  const resultRef = G.roomRef.child('roundResults/' + G.currentRound + '/' + G.playerId);
-  resultRef.set({
-    status: 'done',
-    allCorrect: allCorrect,
-    combo: G.combo
-  });
-
-  // Apply damage
   const target = allCorrect ? 'opponent' : 'self';
   const hpRef = G.roomRef.child('players');
 
   hpRef.transaction(current => {
     if (!current) return current;
     const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
-
     if (target === 'opponent') {
       current[oppId].hp = Math.max(0, current[oppId].hp - damage);
       current[G.playerId].combo = (current[G.playerId].combo || 0) + 1;
@@ -1206,76 +1174,19 @@ function finishRound() {
       updateHpDisplay();
       updateComboDisplay();
 
-      // Show round result
-      const rr = document.getElementById('round-result');
-      rr.classList.remove('hidden');
+      document.getElementById('round-result').classList.remove('hidden');
       if (allCorrect) {
         document.getElementById('rr-text').innerHTML = `🔥 全對！你對對手造成 <span class="text-red-400">${damage}</span> 點傷害！`;
       } else {
         document.getElementById('rr-text').innerHTML = `💔 答錯了... 你受到 <span class="text-red-400">${damage}</span> 點傷害`;
       }
 
-      // Check if waiting for opponent (only host advances the round)
-      if (G._advancingRound) return;
-      const oppStatus = G.roomRef.child('roundResults/' + G.currentRound + '/' + (G.playerId === 'p1' ? 'p2' : 'p1'));
-      oppStatus.once('value', oppSnap => {
-        if (G._advancingRound) return;
-        const bothDone = oppSnap.exists() && oppSnap.val().status === 'done';
-        if (bothDone) {
-          if (G.isHost) {
-            G._advancingRound = true;
-            setTimeout(() => {
-              if (G.hp > 0 && G.opponentHp > 0) {
-                G._advancingRound = false;
-                nextRound();
-              }
-            }, 1500);
-          } else {
-            // p2 waits for host's next questions
-            document.getElementById('rr-text').innerHTML += '<br><span class="text-slate-400 text-sm">等待房主開啟下一輪...</span>';
-            // Listen for host's questions for next round
-            const nextR = G.currentRound + 1;
-            const qRef = G.roomRef.child('questions/' + nextR);
-            const qListener = qRef.on('value', function qCb(snap) {
-              if (snap.exists()) {
-                qRef.off('value', qListener);
-                G.currentRound = nextR - 1;
-                nextRound();
-              }
-            });
-            setTimeout(() => qRef.off('value', qListener), 60000);
-          }
-        } else {
-          document.getElementById('waiting-opponent').classList.remove('hidden');
-          const waitListener = oppStatus.on('value', waitSnap => {
-            if (waitSnap.exists() && waitSnap.val().status === 'done') {
-              oppStatus.off('value', waitListener);
-              if (G._advancingRound) return;
-              document.getElementById('waiting-opponent').classList.add('hidden');
-              if (G.isHost) {
-                G._advancingRound = true;
-                setTimeout(() => {
-                  if (G.hp > 0 && G.opponentHp > 0) {
-                    G._advancingRound = false;
-                    nextRound();
-                  }
-                }, 1000);
-              } else {
-                const nextR = G.currentRound + 1;
-                const qRef = G.roomRef.child('questions/' + nextR);
-                const qListener = qRef.on('value', function qCb(snap) {
-                  if (snap.exists()) {
-                    qRef.off('value', qListener);
-                    G.currentRound = nextR - 1;
-                    nextRound();
-                  }
-                });
-                setTimeout(() => qRef.off('value', qListener), 60000);
-              }
-            }
-          });
+      // 獨立回合：答完直接下一輪，不用等對方
+      setTimeout(() => {
+        if (G.hp > 0 && G.opponentHp > 0) {
+          nextRound();
         }
-      });
+      }, 1500);
     }
   });
 }
@@ -1415,20 +1326,6 @@ function startGameListeners() {
   });
   G.listeners.push({ ref: pRef, listener: pListener, event: 'value' });
 
-  // Listen for round results to update waiting state
-  const rrRef = G.roomRef.child('roundResults');
-  const rrListener = rrRef.on('value', snap => {
-    if (!snap.exists()) return;
-    const results = snap.val();
-    const roundStr = String(G.currentRound);
-    if (results[roundStr] && G.currentRound > 0) {
-      const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
-      if (results[roundStr][oppId]?.status === 'done' && !G._advancingRound) {
-        document.getElementById('waiting-opponent').classList.add('hidden');
-      }
-    }
-  });
-  G.listeners.push({ ref: rrRef, listener: rrListener, event: 'value' });
 }
 
 function playAgain() {
