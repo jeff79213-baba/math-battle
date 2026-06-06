@@ -7,7 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <style>
 * { user-select: none; -webkit-user-select: none; }
 body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100vh; }
@@ -147,17 +147,19 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
 
 <!-- ====== SCREEN: WAITING ====== -->
 <div id="screen-waiting" class="screen min-h-screen flex items-center justify-center p-4">
-  <div class="max-w-md w-full space-y-6 text-center slide-up">
+  <div class="max-w-md w-full space-y-5 text-center slide-up">
     <div class="text-6xl mb-2">⏳</div>
     <h2 class="text-2xl font-bold text-white">等待對手加入...</h2>
 
     <div class="bg-slate-800/50 rounded-2xl p-6 space-y-4">
-      <p class="text-slate-400 text-sm">房間代號</p>
-      <div id="room-code-display" class="text-5xl font-bold text-blue-400 tracking-[.3em]">----</div>
+      <p class="text-slate-400 text-sm">房間代號（點擊可複製）</p>
+      <div id="room-code-display" onclick="copyRoomCode()" class="text-7xl font-bold text-blue-400 tracking-[.3em] select-all cursor-pointer hover:text-blue-300 transition" title="點擊複製">----</div>
 
-      <div id="qrcode-container" class="flex justify-center pt-2">
-        <div id="qrcode-placeholder" class="w-40 h-40 bg-slate-700 rounded-xl flex items-center justify-center text-slate-500 text-sm">QR Code</div>
+      <div id="qrcode-container" class="flex justify-center pt-1">
+        <div id="qrcode-placeholder" class="bg-white rounded-xl p-2 inline-flex items-center justify-center min-w-[180px] min-h-[180px]">產生 QR Code 中...</div>
       </div>
+
+      <p class="text-slate-500 text-xs">也可手動在網址後加 <code class="text-blue-400">?join=房間代號</code> 快速加入</p>
 
       <div class="flex items-center justify-center gap-2 text-slate-400">
         <span class="waiting-pulse text-2xl">●</span>
@@ -567,11 +569,28 @@ function enterWaitingRoom() {
     document.getElementById('waiting-p1-name').textContent = '等待房主...';
   }
 
-  // Generate QR code (client-side)
-  const qrContainer = document.getElementById('qrcode-placeholder');
-  qrContainer.innerHTML = '<div id="qr-inner" style="display:inline-block;background:white;padding:8px;border-radius:12px;"></div>';
+  // Generate QR code (client-side SVG)
   const qrUrl = window.location.origin + window.location.pathname + '?join=' + G.roomCode;
-  new QRCode(document.getElementById('qr-inner'), { text: qrUrl, width: 160, height: 160, colorDark: '#1e293b', colorLight: '#ffffff' });
+  const qrContainer = document.getElementById('qrcode-placeholder');
+  if (typeof qrcode !== 'undefined') {
+    var qr = qrcode(0, 'M');
+    qr.addData(qrUrl);
+    qr.make();
+    qrContainer.innerHTML = qr.createSvgTag({ cellSize: 6, margin: 2 });
+    qrContainer.querySelector('svg').style.width = '180px';
+    qrContainer.querySelector('svg').style.height = '180px';
+  } else {
+    qrContainer.innerHTML = '<span class="text-slate-500">QR Code 載入中...</span>';
+  }
+
+  // Click room code to copy
+  window.copyRoomCode = function() {
+    navigator.clipboard.writeText(G.roomCode).then(() => {
+      const el = document.getElementById('room-code-display');
+      el.textContent = '✅ 已複製!';
+      setTimeout(() => el.textContent = G.roomCode, 1500);
+    });
+  };
 
   // Listen for room changes
   const ref = G.roomRef;
@@ -1416,13 +1435,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const joinCode = params.get('join');
   if (joinCode && joinCode.length === 4) {
     document.getElementById('input-room-code').value = joinCode.toUpperCase();
-    // Prompt for nickname and auto-join
-    const name = prompt('請輸入你的暱稱：');
-    if (name && name.trim()) {
-      document.getElementById('input-nickname').value = name.trim();
-      G.playerName = name.trim();
-      confirmJoin();
-    }
+    document.getElementById('join-input-area').classList.remove('hidden');
+    document.getElementById('input-nickname').focus();
+    document.getElementById('input-nickname').placeholder = '輸入暱稱後按確認加入';
   }
 });
 </script>
