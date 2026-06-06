@@ -159,7 +159,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
         <div id="qrcode-placeholder" class="bg-white rounded-xl p-2 inline-flex items-center justify-center min-w-[180px] min-h-[180px]">產生 QR Code 中...</div>
       </div>
 
-      <p class="text-slate-500 text-xs">也可手動在網址後加 <code class="text-blue-400">?join=房間代號</code> 快速加入</p>
+      <p class="text-slate-500 text-xs break-all max-w-xs mx-auto"><span>或直接開啟連結：</span><a id="qr-link" class="text-blue-400 underline break-all" href="#" target="_blank" rel="noopener">載入中...</a></p>
 
       <div class="flex items-center justify-center gap-2 text-slate-400">
         <span class="waiting-pulse text-2xl">●</span>
@@ -292,8 +292,8 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
         <p class="text-slate-400 text-sm">🎯 先選棋子，再點格子</p>
         <p id="l3-instruction" class="text-xl font-bold text-yellow-400">---</p>
         <div id="l3-stones" class="flex justify-center gap-6 mb-3">
-          <button class="stone-btn bg-zinc-800 text-white" onclick="selectStone('black')">⚫ 黑子</button>
-          <button class="stone-btn bg-zinc-800 text-white" onclick="selectStone('white')">⚪ 白子</button>
+          <button class="stone-btn bg-zinc-800 text-white" data-stone="black" onclick="selectStone('black')">⚫ 黑子</button>
+          <button class="stone-btn bg-zinc-800 text-white" data-stone="white" onclick="selectStone('white')">⚪ 白子</button>
         </div>
         <div class="flex justify-center">
           <div id="l3-grid" class="inline-block bg-slate-800/50 p-2 rounded-xl">
@@ -576,12 +576,17 @@ function enterWaitingRoom() {
     var qr = qrcode(0, 'M');
     qr.addData(qrUrl);
     qr.make();
-    qrContainer.innerHTML = qr.createSvgTag({ cellSize: 6, margin: 2 });
-    qrContainer.querySelector('svg').style.width = '180px';
-    qrContainer.querySelector('svg').style.height = '180px';
+    qrContainer.innerHTML = qr.createSvgTag({ cellSize: 8, margin: 4 });
+    if (qrContainer.querySelector('svg')) {
+      var svg = qrContainer.querySelector('svg');
+      svg.setAttribute('width', '200');
+      svg.setAttribute('height', '200');
+    }
   } else {
     qrContainer.innerHTML = '<span class="text-slate-500">QR Code 載入中...</span>';
   }
+  // Show direct link below QR
+  document.getElementById('qr-link').textContent = qrUrl;
 
   // Click room code to copy
   window.copyRoomCode = function() {
@@ -886,9 +891,12 @@ function renderLayer1() {
   const parts = [q.a, q.op, q.b, '=', q.result];
   const blankIdx = q.blankPos;
 
+  // parts = [a, op, b, '=', result], blankPos: 0=a, 1=b, 2=result
+  const indexMap = [0, 2, 4]; // map blankPos to parts index
+  const blankIdx2 = indexMap[blankIdx];
   eq.innerHTML = '';
   parts.forEach((p, i) => {
-    if (i === blankIdx) {
+    if (i === blankIdx2) {
       const zone = document.createElement('span');
       zone.className = 'drop-zone';
       zone.id = 'l1-drop';
@@ -1064,15 +1072,13 @@ function renderLayer3() {
   G.l3Stone = null;
   G.l3Cell = null;
 
-  // Reset stone buttons
   document.querySelectorAll('.stone-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.grid-cell').forEach(c => c.classList.remove('selected'));
   document.getElementById('l3-submit').disabled = true;
 
-  // Build grid
   const grid = document.getElementById('l3-grid');
   const container = grid.querySelector('.grid');
   if (!container) {
-    // Rebuild
     grid.innerHTML = '';
     const newGrid = document.createElement('div');
     newGrid.className = 'grid grid-cols-6 gap-1';
@@ -1106,8 +1112,8 @@ function buildGrid(container) {
       cell.className = 'grid-cell';
       const col = String.fromCharCode(65 + c);
       cell.dataset.col = col;
-      cell.dataset.row = r;
-      cell.onclick = () => selectCell(cell, col, r);
+      cell.dataset.row = String(r);
+      cell.onclick = function() { selectCell(this, this.dataset.col, this.dataset.row); };
       container.appendChild(cell);
     }
   }
@@ -1115,12 +1121,8 @@ function buildGrid(container) {
 
 function selectStone(type) {
   G.l3Stone = type;
-  document.querySelectorAll('.stone-btn').forEach(b => b.classList.remove('selected'));
   document.querySelectorAll('.stone-btn').forEach(b => {
-    if ((type === 'black' && b.textContent.includes('黑')) ||
-        (type === 'white' && b.textContent.includes('白'))) {
-      b.classList.add('selected');
-    }
+    b.classList.toggle('selected', b.dataset.stone === type);
   });
   checkL3Ready();
 }
