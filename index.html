@@ -438,6 +438,16 @@ function showError(msg) {
 // =====================================================
 let joinMode = false;
 
+function resetLobbyUI() {
+  joinMode = false;
+  document.getElementById('join-input-area').classList.add('hidden');
+  document.getElementById('input-room-code').value = '';
+  document.getElementById('input-nickname').value = '';
+  document.getElementById('input-nickname').placeholder = '輸入暱稱';
+  document.getElementById('hp-slider').value = '100';
+  document.getElementById('hp-display').textContent = '100';
+}
+
 function toggleJoin() {
   joinMode = !joinMode;
   document.getElementById('join-input-area').classList.toggle('hidden', !joinMode);
@@ -545,7 +555,8 @@ function cancelRoom() {
   cleanupFirebase();
   G.roomRef = null;
   G.roomCode = null;
-  showScreen('lobby');
+  resetLobbyUI();
+  showScreen('screen-lobby');
 }
 
 function selectColor(color) {
@@ -1431,7 +1442,8 @@ function backToLobby() {
   G.roomRef = null;
   G.roomCode = null;
   G._gameStarted = false;
-  showScreen('lobby');
+  resetLobbyUI();
+  showScreen('screen-lobby');
 }
 
 // =====================================================
