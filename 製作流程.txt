@@ -1,0 +1,151 @@
+數學對戰遊戲 - 製作流程
+==========================
+
+一、整體架構
+──────────
+  電腦（開發端）
+    │
+    ├─ 1. 寫好 index.html（遊戲全部程式碼）
+    │
+    ├─ 2. 上傳到 Firebase Realtime Database
+    │    （遊戲過程的即時資料：血量、combo、房間等）
+    │
+    ├─ 3. 上傳到 GitHub（版本管理 + 靜態網站代管）
+    │
+    └─ 4. GitHub Pages 自動產生網址
+         │
+         └─ 網址 + 房間代號 → QR Code（產生在畫面上）
+               │
+               手機掃碼 → 打開網頁 → 自動填入房間代號 → 輸入暱稱加入
+
+
+二、各角色說明
+────────────
+
+  Firebase Realtime Database（即時資料庫）
+  ──────────────────────────────────────
+  - 線上資料庫，存放在 Google 雲端
+  - 不需要註冊帳號就可以讀寫（目前設定為公開）
+  - 儲存遊戲過程中的「變動資料」：
+    · 房間資訊（代號、狀態、血量設定）
+    · 玩家資料（名字、顏色、血量、combo）
+    · 勝負結果
+  - 特色：手機或電腦對資料的任何修改，另一方會「即時收到」
+  - 網址：https://pk-213-default-rtdb.asia-southeast1.firebasedatabase.app
+
+  GitHub（程式碼存放 + 網站代管）
+  ──────────────────────────────
+  - 存放 index.html 原始碼（遊戲的完整程式）
+  - GitHub Pages 功能會自動把程式變成一個網頁
+  - 網址：https://jeff79213-baba.github.io/math-battle/
+
+  QR Code（快速加入工具）
+  ─────────────────────
+  - 網址 + 房間代號 = 一組完整的連結
+  - 例：https://jeff79213-baba.github.io/math-battle/?join=ABCD
+  - 把這個連結變成 QR Code 印在畫面上
+  - 手機掃碼 → 直接開啟連結 → 自動帶入房間代號
+
+
+三、完整流程（從零開始）
+─────────────────────
+
+  Step 1: 在本機寫程式
+  ────────────────────
+    資料夾：C:\Users\TW-10\Documents\互動式遊戲\及時對戰\
+    檔案：index.html（全部遊戲，約 1500 行）
+    工具：VS Code 編輯器
+
+  Step 2: 設定 Firebase
+  ─────────────────────
+    1. 去 https://console.firebase.google.com/ 開一個專案（pk-213）
+    2. 啟用 Realtime Database（選亞洲新加坡地區）
+    3. 複製 Firebase 設定值（apiKey、databaseURL 等）
+    4. 貼到 index.html 的 firebaseConfig 區塊
+    5. 安全規則設為 {".read": true, ".write": true}（測試用）
+
+  Step 3: 上傳到 GitHub
+  ─────────────────────
+    指令：（在資料夾開終端機執行）
+
+    git init                    # 初始化 git
+    git add index.html          # 加入程式檔
+    git commit -m "說明文字"    # 提交版本
+    git remote add origin https://github.com/jeff79213-baba/math-battle.git
+    git push origin master      # 上傳到 GitHub
+
+  Step 4: 開啟 GitHub Pages
+  ─────────────────────────
+    1. 去 github.com → math-battle 倉庫 → Settings → Pages
+    2. Source 選 master branch
+    3. 等幾分鐘，出現網址：
+       https://jeff79213-baba.github.io/math-battle/
+    4. 之後每次 git push，GitHub 會自動更新網站
+
+  Step 5: 產生 QR Code
+  ─────────────────────
+    1. 打開 https://jeff79213-baba.github.io/math-battle/
+    2. 輸入暱稱 → 按「創建房間」
+    3. 畫面自動顯示 QR Code（由瀏覽器內的程式產生）
+    4. 手機掃 QR Code 即可加入對戰
+
+
+四、遊戲如何運作（流程圖）
+─────────────────────
+
+  玩家 A（開房者）                     Firebase                     玩家 B（加入者）
+  ──────────────                     ────────                     ──────────────
+  輸入暱稱
+  按「創建房間」
+       │
+       ├── 產生 4 碼房間代號 ──────→  寫入房間資料
+       │                              (p1 資料, 狀態 waiting)
+       │
+       │  顯示等待畫面
+       │  (顯示 QR Code + 房間代號)
+       │                                   │
+       │                                   │              掃 QR Code
+       │                                   │              (手機打開網頁)
+       │                                   │                  │
+       │                                   │              ?join=ABCD 自動填入
+       │                                   │              輸入暱稱
+       │                                   │              按「確認加入」
+       │                                   │                  │
+       │                                   ├── 檢查房間可用 ──┘
+       │                                   │  寫入 p2 資料
+       │                                   │  狀態改為 started
+       │                                   │
+       │ 收到 p2 加入通知 ──────────→      │
+       │                                   │
+       │  遊戲開始                          │  遊戲開始
+       │  (雙方各自獨立作答)                │  (雙方各自獨立作答)
+       │                                   │
+       ├── 第 1 層：填空拖曳          ────→  更新血量
+       ├── 第 2 層：選擇題            ────→  更新血量
+       ├── 第 3 層：棋盤座標          ────→  更新血量
+       │                                   │
+       └── 血量歸零 → 分出勝負 ──────→    ──┘
+
+
+五、關鍵技術
+─────────
+
+  · Firebase Realtime Database：即時同步雙方血量、combo
+  · GitHub Pages：免費靜態網站代管
+  · QR Code：使用 qrcode-generator 套件（CDN），在瀏覽器內生成 SVG 圖片
+  · 題目生成：全部在瀏覽器端，不需要伺服器
+    - 第 1 層：隨機加減法填空（可拖曳數字 1-10）
+    - 第 2 層：比大小選擇題（例如「比 8 大又比 12 小」）
+    - 第 3 層：5×5 棋盤座標題（選棋子類型 + 點座標）
+  · CSS：Tailwind CSS（CDN 版）
+  · 角色：6 種顏色選擇，SVG 火柴人造型 + 武器圖示
+
+
+六、開發常用指令
+─────────────
+
+  git add index.html
+  git commit -m "修改說明"
+  git push origin master
+
+  每次 push 後等約 1-2 分鐘，GitHub Pages 自動更新。

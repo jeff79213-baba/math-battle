@@ -1003,10 +1003,25 @@ function fillDropZone(val) {
   document.getElementById('l1-submit').disabled = false;
 }
 
+function applyLevelDamage(correct) {
+  const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
+  const updates = {};
+  if (correct) {
+    G.opponentHp = Math.max(0, G.opponentHp - 2);
+    updates[oppId + '/hp'] = G.opponentHp;
+  } else {
+    G.hp = Math.max(0, G.hp - 2);
+    updates[G.playerId + '/hp'] = G.hp;
+  }
+  G.roomRef.child('players').update(updates);
+  updateHpDisplay();
+}
+
 function submitLayer1() {
   if (G.l1Answer === null) return;
   const correct = G.l1Answer === G.questions.layer1.answer;
   showFeedback(correct);
+  applyLevelDamage(correct);
   if (correct) {
     G.l1Answer = 'correct';
   } else {
@@ -1057,6 +1072,7 @@ function submitLayer2() {
   });
 
   showFeedback(correct);
+  applyLevelDamage(correct);
   G.l2Answer = correct ? 'correct' : 'wrong';
   document.getElementById('l2-submit').disabled = true;
   setTimeout(() => showLayer(3), 1000);
@@ -1152,6 +1168,7 @@ function submitLayer3() {
   });
 
   showFeedback(correct);
+  applyLevelDamage(correct);
   G.l3Answer = correct ? 'correct' : 'wrong';
   document.getElementById('l3-submit').disabled = true;
 
@@ -1170,27 +1187,24 @@ function finishRound() {
 
   G._advancingRound = false;
 
-  // 每關扣2分（答對的關才算）
-  const levelDamage = (l1ok ? 2 : 0) + (l2ok ? 2 : 0) + (l3ok ? 2 : 0);
-  // 三關全對額外加5分
+  // 三關全對額外加5分（每關2分已在 submit 時即時扣除）
   const roundBonus = allCorrect ? 5 : 0;
   // combo加分從第二輪開始（G.combo 初始為 0，第一輪 comboBonus = 0）
   const comboBonus = 2 * G.combo;
-  const damage = levelDamage + roundBonus + comboBonus;
+  const bonusDamage = roundBonus + comboBonus;
 
-  const target = allCorrect ? 'opponent' : 'self';
   const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
   const updates = {};
 
-  if (target === 'opponent') {
-    updates[oppId + '/hp'] = Math.max(0, G.opponentHp - damage);
+  if (allCorrect) {
+    if (bonusDamage > 0) {
+      G.opponentHp = Math.max(0, G.opponentHp - bonusDamage);
+      updates[oppId + '/hp'] = G.opponentHp;
+    }
     updates[G.playerId + '/combo'] = (G.combo || 0) + 1;
-    G.opponentHp = Math.max(0, G.opponentHp - damage);
     G.combo = (G.combo || 0) + 1;
   } else {
-    updates[G.playerId + '/hp'] = Math.max(0, G.hp - damage);
     updates[G.playerId + '/combo'] = 0;
-    G.hp = Math.max(0, G.hp - damage);
     G.combo = 0;
   }
 
@@ -1199,12 +1213,14 @@ function finishRound() {
 
   document.getElementById('round-result').classList.remove('hidden');
   if (allCorrect) {
-    document.getElementById('rr-text').innerHTML = `🔥 全對！你對對手造成 <span class="text-red-400">${damage}</span> 點傷害！（關卡 ${levelDamage} + 全對獎勵 ${roundBonus} + combo ${comboBonus}）`;
+    document.getElementById('rr-text').innerHTML = `🔥 全對！對手額外再扣 <span class="text-red-400">${bonusDamage}</span> 點！（全對獎勵 ${roundBonus} + combo ${comboBonus}）`;
   } else {
-    document.getElementById('rr-text').innerHTML = `💔 答錯了... 你受到 <span class="text-red-400">${damage}</span> 點傷害（關卡 ${levelDamage} + combo ${comboBonus}）`;
+    document.getElementById('rr-text').innerHTML = `💔 有答錯的關卡，連擊中斷！`;
   }
 
-  G.roomRef.child('players').update(updates);
+  if (bonusDamage > 0 || !allCorrect) {
+    G.roomRef.child('players').update(updates);
+  }
 
   setTimeout(() => {
     if (G.hp > 0 && G.opponentHp > 0) {
