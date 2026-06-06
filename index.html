@@ -7,6 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 * { user-select: none; -webkit-user-select: none; }
 body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100vh; }
@@ -566,10 +567,11 @@ function enterWaitingRoom() {
     document.getElementById('waiting-p1-name').textContent = '等待房主...';
   }
 
-  // Generate QR code
-  const url = window.location.origin + window.location.pathname + '?join=' + G.roomCode;
-  document.getElementById('qrcode-placeholder').innerHTML =
-    `<img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}" alt="QR Code" class="rounded-xl">`;
+  // Generate QR code (client-side)
+  const qrContainer = document.getElementById('qrcode-placeholder');
+  qrContainer.innerHTML = '<div id="qr-inner" style="display:inline-block;background:white;padding:8px;border-radius:12px;"></div>';
+  const qrUrl = window.location.origin + window.location.pathname + '?join=' + G.roomCode;
+  new QRCode(document.getElementById('qr-inner'), { text: qrUrl, width: 160, height: 160, colorDark: '#1e293b', colorLight: '#ffffff' });
 
   // Listen for room changes
   const ref = G.roomRef;
