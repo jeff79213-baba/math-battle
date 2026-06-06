@@ -441,12 +441,6 @@ let joinMode = false;
 function toggleJoin() {
   joinMode = !joinMode;
   document.getElementById('join-input-area').classList.toggle('hidden', !joinMode);
-  const nicknameInput = document.getElementById('input-nickname');
-  if (joinMode) {
-    nicknameInput.value = '玩家2';
-  } else {
-    nicknameInput.value = '玩家1';
-  }
 }
 
 document.getElementById('input-room-code').addEventListener('keydown', e => {
@@ -686,27 +680,27 @@ function applyFighterColorToEl(el, color) {
 function startGame(data) {
   showScreen('screen-game');
 
-  // Initialize game state
-  const me = data.players[G.playerId];
-  const opp = data.players[G.playerId === 'p1' ? 'p2' : 'p1'];
+  try {
+    const me = data.players[G.playerId] || {};
+    const opp = data.players[G.playerId === 'p1' ? 'p2' : 'p1'] || {};
 
-  G.hp = me.hp;
-  G.combo = me.combo;
-  G.maxHp = data.maxHp;
-  G.currentRound = 0;
-  G.opponentName = opp.name;
-  G.opponentColor = opp.color;
-  G.opponentHp = opp.hp;
-  G.opponentCombo = opp.combo;
+    G.hp = me.hp ?? G.maxHp;
+    G.combo = me.combo ?? 0;
+    G.maxHp = data.maxHp ?? 100;
+    G.currentRound = 0;
+    G.opponentName = opp.name ?? '對手';
+    G.opponentColor = opp.color ?? 'red';
+    G.opponentHp = opp.hp ?? G.maxHp;
+    G.opponentCombo = opp.combo ?? 0;
 
-  // Setup UI
-  setupGameUI(me, opp);
+    setupGameUI(me, opp);
+  } catch (e) {
+    console.error('startGame error', e);
+  }
 
-  // Listen for game state changes
   cleanupFirebase();
   startGameListeners();
 
-  // Start first round
   setTimeout(() => nextRound(), 500);
 }
 
@@ -784,45 +778,29 @@ function generateQuestions(round) {
 }
 
 function generateLayer1(seed) {
-  const a = randInt(1, 9);
-  const b = randInt(1, 9);
   const op = Math.random() > 0.5 ? '+' : '-';
-  const parts = []; // 0: first num, 1: op, 2: second num, 3: equals, 4: result
-  let result, answer, blankPos;
+  let a, b, result, answer, blankPos;
 
   if (op === '+') {
+    a = randInt(1, 9);
+    b = randInt(1, 9);
     result = a + b;
-    blankPos = randInt(0, 2); // 0: first, 1: second, 2: result
+    blankPos = randInt(0, 2);
     if (blankPos === 0) { answer = a; }
     else if (blankPos === 1) { answer = b; }
     else { answer = result; }
   } else {
-    // Ensure positive result
-    const big = Math.max(a + 1, b + 1);
-    const small = randInt(1, Math.max(1, big - 2));
-    result = big - small;
+    a = randInt(2, 9);
+    b = randInt(1, a - 1);
+    result = a - b;
     blankPos = randInt(0, 2);
-    if (blankPos === 0) { answer = big; }
-    else if (blankPos === 1) { answer = small; }
+    if (blankPos === 0) { answer = a; }
+    else if (blankPos === 1) { answer = b; }
     else { answer = result; }
   }
 
-  // Ensure answer is 1-10
-  if (answer < 1) answer = randInt(1, 5);
-  if (answer > 10) answer = randInt(5, 10);
-
-  // Determine equation parts for display
-  let eqA, eqB, eqOp, eqResult;
-  if (op === '+') {
-    eqA = a; eqB = b; eqOp = '+'; eqResult = result;
-  } else {
-    if (blankPos === 0) { eqA = result; eqB = small; eqOp = '-'; eqResult = big; }
-    else if (blankPos === 1) { eqA = big; eqB = result; eqOp = '-'; eqResult = small; }
-    else { eqA = big; eqB = small; eqOp = '-'; eqResult = result; }
-  }
-
   return {
-    a: eqA, b: eqB, op: eqOp, result: eqResult,
+    a: a, b: b, op: op, result: result,
     blankPos: blankPos,
     answer: answer
   };
@@ -870,7 +848,8 @@ function generateLayer3(seed) {
 function showLayer(num) {
   G.currentLayer = num;
   document.querySelectorAll('.layer').forEach(el => el.classList.add('hidden'));
-  document.getElementById(`layer-${num}`).classList.remove('hidden');
+  const layerEl = document.getElementById(`layer-${num}`);
+  if (layerEl) layerEl.classList.remove('hidden');
 
   // Update dots
   document.querySelectorAll('.dot').forEach(d => {
@@ -902,8 +881,12 @@ function showFeedback(ok) {
 // LAYER 1: Math Fill Drag & Drop
 // =====================================================
 function renderLayer1() {
+  if (!G.questions || !G.questions.layer1) {
+    G.questions = generateQuestions(Math.max(1, G.currentRound));
+  }
   const q = G.questions.layer1;
   const eq = document.getElementById('l1-equation');
+  if (!eq) return;
   const parts = [q.a, q.op, q.b, '=', q.result];
   const blankIdx = q.blankPos;
 
@@ -930,10 +913,11 @@ function renderLayer1() {
     }
   });
 
-  // Numbers 1-10
+  // Numbers 1-20
   const nums = document.getElementById('l1-numbers');
+  if (!nums) return;
   nums.innerHTML = '';
-  for (let i = 1; i <= 10; i++) {
+  for (let i = 1; i <= 20; i++) {
     const div = document.createElement('div');
     div.className = 'drag-number bg-slate-700 text-white';
     div.textContent = i;
@@ -1186,48 +1170,47 @@ function finishRound() {
 
   G._advancingRound = false;
 
-  const baseDmg = 5;
+  // 每關扣2分（答對的關才算）
+  const levelDamage = (l1ok ? 2 : 0) + (l2ok ? 2 : 0) + (l3ok ? 2 : 0);
+  // 三關全對額外加5分
+  const roundBonus = allCorrect ? 5 : 0;
+  // combo加分從第二輪開始（G.combo 初始為 0，第一輪 comboBonus = 0）
   const comboBonus = 2 * G.combo;
-  const damage = baseDmg + comboBonus;
+  const damage = levelDamage + roundBonus + comboBonus;
 
   const target = allCorrect ? 'opponent' : 'self';
-  const hpRef = G.roomRef.child('players');
+  const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
+  const updates = {};
 
-  hpRef.transaction(current => {
-    if (!current) return current;
-    const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
-    if (target === 'opponent') {
-      current[oppId].hp = Math.max(0, current[oppId].hp - damage);
-      current[G.playerId].combo = (current[G.playerId].combo || 0) + 1;
-    } else {
-      current[G.playerId].hp = Math.max(0, current[G.playerId].hp - damage);
-      current[G.playerId].combo = 0;
+  if (target === 'opponent') {
+    updates[oppId + '/hp'] = Math.max(0, G.opponentHp - damage);
+    updates[G.playerId + '/combo'] = (G.combo || 0) + 1;
+    G.opponentHp = Math.max(0, G.opponentHp - damage);
+    G.combo = (G.combo || 0) + 1;
+  } else {
+    updates[G.playerId + '/hp'] = Math.max(0, G.hp - damage);
+    updates[G.playerId + '/combo'] = 0;
+    G.hp = Math.max(0, G.hp - damage);
+    G.combo = 0;
+  }
+
+  updateHpDisplay();
+  updateComboDisplay();
+
+  document.getElementById('round-result').classList.remove('hidden');
+  if (allCorrect) {
+    document.getElementById('rr-text').innerHTML = `🔥 全對！你對對手造成 <span class="text-red-400">${damage}</span> 點傷害！（關卡 ${levelDamage} + 全對獎勵 ${roundBonus} + combo ${comboBonus}）`;
+  } else {
+    document.getElementById('rr-text').innerHTML = `💔 答錯了... 你受到 <span class="text-red-400">${damage}</span> 點傷害（關卡 ${levelDamage} + combo ${comboBonus}）`;
+  }
+
+  G.roomRef.child('players').update(updates);
+
+  setTimeout(() => {
+    if (G.hp > 0 && G.opponentHp > 0) {
+      nextRound();
     }
-    return current;
-  }, (error, committed, snap) => {
-    if (committed && snap) {
-      const players = snap.val();
-      G.hp = players[G.playerId].hp;
-      G.combo = players[G.playerId].combo || 0;
-      G.opponentHp = players[G.playerId === 'p1' ? 'p2' : 'p1'].hp;
-      updateHpDisplay();
-      updateComboDisplay();
-
-      document.getElementById('round-result').classList.remove('hidden');
-      if (allCorrect) {
-        document.getElementById('rr-text').innerHTML = `🔥 全對！你對對手造成 <span class="text-red-400">${damage}</span> 點傷害！`;
-      } else {
-        document.getElementById('rr-text').innerHTML = `💔 答錯了... 你受到 <span class="text-red-400">${damage}</span> 點傷害`;
-      }
-
-      // 獨立回合：答完直接下一輪，不用等對方
-      setTimeout(() => {
-        if (G.hp > 0 && G.opponentHp > 0) {
-          nextRound();
-        }
-      }, 1500);
-    }
-  });
+  }, 1500);
 }
 
 // =====================================================
