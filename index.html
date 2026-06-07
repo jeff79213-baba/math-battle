@@ -128,38 +128,83 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
 </head>
 <body>
 
+<!-- ====== SCREEN: HERO ====== -->
+<div id="screen-hero" class="screen active min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-md w-full text-center space-y-8 slide-up">
+    <div class="space-y-4">
+      <div class="text-8xl mb-2">⚔️</div>
+      <h1 class="text-5xl font-bold text-white">數學對戰</h1>
+    </div>
+    <div class="bg-slate-800/40 rounded-2xl p-8 space-y-4">
+      <p class="text-slate-200 text-lg leading-relaxed">
+        這是一個用數學即時對戰<br>
+        來擊敗對手的小遊戲！
+      </p>
+      <p class="text-slate-400">希望你們玩得愉快 🎮</p>
+    </div>
+    <button onclick="enterLobby()"
+      class="py-4 px-16 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-2xl transition shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40 active:scale-95">
+      進入遊戲
+    </button>
+  </div>
+</div>
+
 <!-- ====== SCREEN: LOBBY ====== -->
-<div id="screen-lobby" class="screen active min-h-screen flex items-center justify-center p-4">
+<div id="screen-lobby" class="screen min-h-screen flex items-center justify-center p-4">
   <div class="max-w-md w-full space-y-6 text-center slide-up">
-    <div class="text-6xl mb-2">⚔️</div>
-    <h1 class="text-4xl font-bold text-white mb-1">數學對戰</h1>
-    <p class="text-slate-400 text-sm">雙人即時對戰 · 回答數學題擊敗對手！</p>
 
     <div class="bg-slate-800/50 rounded-2xl p-6 space-y-4">
-      <input id="input-nickname" type="text" value="玩家1" maxlength="8"
-        class="w-full px-4 py-3 rounded-xl bg-slate-700 text-white text-center text-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
-        onfocus="this.select()">
 
       <div class="grid grid-cols-2 gap-3">
-        <button id="btn-create-room" onclick="createRoom()"
+        <button onclick="toggleCreateForm()"
           class="py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg transition">創建房間</button>
-        <button id="btn-join-room"
+        <button onclick="toggleJoinForm()"
           class="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-lg transition">加入房間</button>
       </div>
 
+      <!-- Shared nickname (shown when either form is active) -->
+      <div id="nickname-area" class="hidden">
+        <input id="input-nickname" type="text" value="玩家1" maxlength="8"
+          class="w-full px-4 py-3 rounded-xl bg-slate-700 text-white text-center text-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+          onfocus="this.select()">
+      </div>
+
+      <!-- Create extra fields -->
+      <div id="create-extras" class="hidden space-y-4">
+        <div class="space-y-2 pt-2 border-t border-slate-700">
+          <p class="text-slate-400 text-sm">💖 初始血量設定（創房者有效）</p>
+          <div class="flex items-center gap-3 justify-center">
+            <input id="hp-slider" type="range" min="30" max="200" value="100" step="10"
+              class="w-48 accent-blue-500" oninput="updateHpDisplay()">
+            <span id="hp-display" class="text-white font-bold text-lg w-12">100</span>
+          </div>
+        </div>
+        <button onclick="createRoom()"
+          class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg transition">確認創建</button>
+      </div>
+
+      <!-- Join form (hidden by default) -->
       <div id="join-input-area" class="hidden space-y-2">
         <input id="input-room-code" type="text" placeholder="輸入 4 碼房間代號" maxlength="4"
           class="w-full px-4 py-3 rounded-xl bg-slate-700 text-white text-center text-lg border border-slate-600 focus:border-emerald-500 focus:outline-none uppercase tracking-widest">
         <button onclick="confirmJoin()"
           class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-lg transition">確認加入</button>
       </div>
+    </div>
 
-      <div id="hp-config" class="space-y-2 pt-2 border-t border-slate-700">
-        <p class="text-slate-400 text-sm">💖 初始血量設定（創房者有效）</p>
-        <div class="flex items-center gap-3 justify-center">
-          <input id="hp-slider" type="range" min="30" max="200" value="100" step="10"
-            class="w-48 accent-blue-500" oninput="updateHpDisplay()">
-          <span id="hp-display" class="text-white font-bold text-lg w-12">100</span>
+    <div id="lobby-error" class="text-red-400 text-sm hidden"></div>
+
+    <!-- Room List -->
+    <div id="room-list-section" class="hidden pt-2">
+      <p class="text-slate-400 text-sm mb-3">📋 等待中的房間</p>
+      <div id="room-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+
+      <div id="selected-room-area" class="hidden mt-3 p-4 bg-slate-700/50 rounded-xl text-center">
+        <p class="text-white font-bold mb-2">房間 <span id="selected-room-code" class="text-blue-400">----</span></p>
+        <div id="qrcode-selected" class="flex justify-center mb-3 min-h-[120px]"></div>
+        <div class="flex gap-2 justify-center">
+          <button onclick="joinSelectedRoom()" class="py-2 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition">加入對戰</button>
+          <button onclick="cancelRoomSelection()" class="py-2 px-6 rounded-xl bg-slate-600 hover:bg-slate-500 text-white font-bold transition">取消</button>
         </div>
       </div>
     </div>
@@ -177,23 +222,6 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
         </div>
         <button id="btn-start-practice" onclick="startPractice()" disabled
           class="w-full py-3 rounded-xl bg-purple-600 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold text-lg transition">開始測試</button>
-      </div>
-    </div>
-
-    <div id="lobby-error" class="text-red-400 text-sm hidden"></div>
-
-    <!-- Room List -->
-    <div id="room-list-section" class="hidden pt-4 border-t border-slate-700">
-      <p class="text-slate-400 text-sm mb-3">📋 等待中的房間</p>
-      <div id="room-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
-
-      <div id="selected-room-area" class="hidden mt-3 p-4 bg-slate-700/50 rounded-xl text-center">
-        <p class="text-white font-bold mb-2">房間 <span id="selected-room-code" class="text-blue-400">----</span></p>
-        <div id="qrcode-selected" class="flex justify-center mb-3 min-h-[120px]"></div>
-        <div class="flex gap-2 justify-center">
-          <button onclick="joinSelectedRoom()" class="py-2 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition">加入對戰</button>
-          <button onclick="cancelRoomSelection()" class="py-2 px-6 rounded-xl bg-slate-600 hover:bg-slate-500 text-white font-bold transition">取消</button>
-        </div>
       </div>
     </div>
   </div>
@@ -533,9 +561,38 @@ function showError(msg) {
 // =====================================================
 let joinMode = false;
 
+function enterLobby() {
+  cancelRoomSelection();
+  resetLobbyUI();
+  showScreen('screen-lobby');
+  startRoomListListener();
+}
+
+function toggleCreateForm() {
+  var ca = document.getElementById('create-extras');
+  var ja = document.getElementById('join-input-area');
+  var na = document.getElementById('nickname-area');
+  var isHidden = ca.classList.contains('hidden');
+  ca.classList.toggle('hidden', !isHidden);
+  na.classList.toggle('hidden', !isHidden);
+  if (isHidden) { ja.classList.add('hidden'); joinMode = false; }
+}
+
+function toggleJoinForm() {
+  var ja = document.getElementById('join-input-area');
+  var ca = document.getElementById('create-extras');
+  var na = document.getElementById('nickname-area');
+  var isHidden = ja.classList.contains('hidden');
+  ja.classList.toggle('hidden', !isHidden);
+  na.classList.toggle('hidden', !isHidden);
+  if (isHidden) { ca.classList.add('hidden'); }
+}
+
 function resetLobbyUI() {
   joinMode = false;
+  document.getElementById('create-extras').classList.add('hidden');
   document.getElementById('join-input-area').classList.add('hidden');
+  document.getElementById('nickname-area').classList.add('hidden');
   document.getElementById('input-room-code').value = '';
   document.getElementById('input-nickname').value = '';
   document.getElementById('input-nickname').placeholder = '輸入暱稱';
@@ -550,22 +607,8 @@ function resetLobbyUI() {
   practiceRounds = 0;
 }
 
-function toggleJoin() {
-  joinMode = !joinMode;
-  document.getElementById('join-input-area').classList.toggle('hidden', !joinMode);
-}
-
 document.getElementById('input-room-code').addEventListener('keydown', e => {
   if (e.key === 'Enter') confirmJoin();
-});
-
-document.getElementById('btn-join-room').addEventListener('click', function() {
-  const name = document.getElementById('input-nickname').value.trim();
-  if (!name) { showError('請先輸入暱稱'); return; }
-  G.playerName = name;
-  G.isHost = false;
-  G.playerId = 'p2';
-  toggleJoin();
 });
 
 function updateHpDisplay() {
@@ -659,9 +702,7 @@ function cancelRoom() {
   cleanupFirebase();
   G.roomRef = null;
   G.roomCode = null;
-  resetLobbyUI();
-  showScreen('screen-lobby');
-  startRoomListListener();
+  enterLobby();
 }
 
 function selectColor(color) {
@@ -1808,7 +1849,6 @@ function playAgain() {
 }
 
 function backToLobby() {
-  cancelRoomSelection();
   cleanupFirebase();
   if (G.roomRef) {
     if (G.isHost) G.roomRef.remove();
@@ -1819,9 +1859,7 @@ function backToLobby() {
   G._gameStarted = false;
   G.mode = null;
   document.getElementById('hp-bar-area').classList.remove('hidden');
-  resetLobbyUI();
-  showScreen('screen-lobby');
-  startRoomListListener();
+  enterLobby();
 }
 
 // =====================================================
@@ -1842,11 +1880,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
   const joinCode = params.get('join');
   if (joinCode && joinCode.length === 4) {
+    enterLobby();
+    toggleJoinForm();
     document.getElementById('input-room-code').value = joinCode.toUpperCase();
-    document.getElementById('join-input-area').classList.remove('hidden');
     document.getElementById('input-nickname').focus();
     document.getElementById('input-nickname').placeholder = '輸入暱稱後按確認加入';
-    joinMode = true; // sync with visible state
+    joinMode = true;
   }
 });
 </script>
