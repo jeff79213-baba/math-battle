@@ -1190,7 +1190,21 @@ function showDamageFloat(target, amount) {
 }
 
 function applyLevelDamage(correct) {
-  if (G.mode === 'single') return;
+  if (G.mode === 'single') {
+    if (correct) {
+      G.opponentHp = Math.max(0, G.opponentHp - 2);
+      flashHpBar('opponent');
+      shakeFighter('opponent');
+      showDamageFloat('opponent', 2);
+    } else {
+      G.hp = Math.max(0, G.hp - 2);
+      flashHpBar('self');
+      shakeFighter('self');
+      showDamageFloat('self', 2);
+    }
+    updateHpDisplay();
+    return;
+  }
   const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
   const updates = {};
   let target;
@@ -1380,10 +1394,26 @@ function finishRound() {
 
   if (G.mode === 'single') {
     G.stats.roundResults.push({ l1: l1ok, l2: l2ok, l3: l3ok, allCorrect: allCorrect });
+    var bonusDisplay = '';
+    if (allCorrect) {
+      var roundBonus = 5;
+      var comboBonus = 2 * G.combo;
+      var totalBonus = roundBonus + comboBonus;
+      G.opponentHp = Math.max(0, G.opponentHp - totalBonus);
+      flashHpBar('opponent');
+      shakeFighter('opponent');
+      showDamageFloat('opponent', totalBonus);
+      G.combo = (G.combo || 0) + 1;
+      bonusDisplay = ' 暴龍額外扣 ' + totalBonus + ' 點！';
+    } else {
+      G.combo = 0;
+    }
+    updateHpDisplay();
+    updateComboDisplay();
     document.getElementById('round-result').classList.remove('hidden');
     document.getElementById('rr-text').innerHTML = allCorrect
-      ? '✅ 第 ' + G.currentRound + ' 輪 全部正確！'
-      : '❌ 第 ' + G.currentRound + ' 輪 有答錯的關卡';
+      ? '🔥 第 ' + G.currentRound + ' 輪' + bonusDisplay
+      : '❌ 第 ' + G.currentRound + ' 輪 有答錯的關卡，連擊中斷！';
     var more = G.currentRound < practiceRounds;
     setTimeout(function() {
       if (more) { nextRound(); }
@@ -1650,10 +1680,20 @@ function setPracticeRounds(n) {
 function startPractice() {
   if (practiceRounds === 0) return;
   resetPracticeState();
+  G.maxHp = 100;
+  G.hp = 100;
+  G.opponentHp = 100;
   showScreen('screen-game');
-  document.getElementById('hp-bar-area').classList.add('hidden');
+  document.getElementById('hp-bar-area').classList.remove('hidden');
   document.getElementById('waiting-opponent').classList.add('hidden');
   document.getElementById('round-result').classList.add('hidden');
+  document.getElementById('p1-name').textContent = G.playerName || '玩家';
+  document.getElementById('p2-name').textContent = '🦖 暴龍';
+  document.getElementById('fighter-p1').textContent = '🧙‍♂️';
+  document.getElementById('fighter-p2').textContent = '🦖';
+  document.getElementById('p1-hp-fill').style.background = '#22c55e';
+  document.getElementById('p2-hp-fill').style.background = '#ef4444';
+  updateHpDisplay();
   document.querySelector('#screen-game .layer')?.classList.add('hidden');
   setTimeout(function() { nextRound(); }, 300);
 }
