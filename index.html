@@ -1396,15 +1396,13 @@ function finishRound() {
     G.stats.roundResults.push({ l1: l1ok, l2: l2ok, l3: l3ok, allCorrect: allCorrect });
     var bonusDisplay = '';
     if (allCorrect) {
-      var roundBonus = 5;
-      var comboBonus = 2 * G.combo;
-      var totalBonus = roundBonus + comboBonus;
-      G.opponentHp = Math.max(0, G.opponentHp - totalBonus);
+      var pBonus = 5 + 2 * G.combo;
+      G.opponentHp = Math.max(0, G.opponentHp - pBonus);
       flashHpBar('opponent');
       shakeFighter('opponent');
-      showDamageFloat('opponent', totalBonus);
+      showDamageFloat('opponent', pBonus);
       G.combo = (G.combo || 0) + 1;
-      bonusDisplay = ' 暴龍額外扣 ' + totalBonus + ' 點！';
+      bonusDisplay = ' 暴龍額外扣 ' + pBonus + ' 點！';
     } else {
       G.combo = 0;
     }
