@@ -956,13 +956,14 @@ function generateLayer2(seed) {
   const high = low + range;
   let answer = randInt(low + 1, high - 1);
 
-  // Generate wrong options
+  // Generate wrong options (must not be between low and high)
   const wrongs = new Set();
   wrongs.add(low);
   wrongs.add(high);
-  // Add random distractors
   while (wrongs.size < 3) {
-    const d = randInt(Math.max(1, low - 5), high + 5);
+    const d = Math.random() > 0.5
+      ? randInt(Math.max(1, low - 5), low)
+      : randInt(high, high + 5);
     if (d !== answer) wrongs.add(d);
   }
 
@@ -970,7 +971,9 @@ function generateLayer2(seed) {
   return {
     question: `比 ${low} 大又比 ${high} 小的數字是？`,
     options: options,
-    answer: answer
+    answer: answer,
+    low: low,
+    high: high
   };
 }
 
@@ -1269,12 +1272,12 @@ function renderLayer2() {
 function submitLayer2() {
   if (G.l2Answer === null) return;
   const q = G.questions.layer2;
-  const correct = G.l2Answer === q.answer;
+  const correct = G.l2Answer > q.low && G.l2Answer < q.high;
 
   // Highlight correct/wrong
   document.querySelectorAll('#l2-options .opt-btn').forEach(b => {
     const val = parseInt(b.dataset.value);
-    if (val === q.answer) b.classList.add('correct');
+    if (val > q.low && val < q.high) b.classList.add('correct');
     else if (val === G.l2Answer && !correct) b.classList.add('wrong');
   });
 
