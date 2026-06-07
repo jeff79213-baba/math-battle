@@ -164,7 +164,38 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
       </div>
     </div>
 
+    <!-- Practice Mode -->
+    <div class="pt-2 border-t border-slate-700">
+      <button onclick="togglePractice()"
+        class="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-lg transition">🧪 單人測試</button>
+      <div id="practice-config" class="hidden mt-3 space-y-3">
+        <p class="text-slate-400 text-sm">選擇測試輪數</p>
+        <div class="flex gap-2 justify-center">
+          <button onclick="setPracticeRounds(3)" class="practice-rbtn py-2 px-6 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold transition">3 輪</button>
+          <button onclick="setPracticeRounds(5)" class="practice-rbtn py-2 px-6 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold transition">5 輪</button>
+          <button onclick="setPracticeRounds(10)" class="practice-rbtn py-2 px-6 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold transition">10 輪</button>
+        </div>
+        <button id="btn-start-practice" onclick="startPractice()" disabled
+          class="w-full py-3 rounded-xl bg-purple-600 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold text-lg transition">開始測試</button>
+      </div>
+    </div>
+
     <div id="lobby-error" class="text-red-400 text-sm hidden"></div>
+
+    <!-- Room List -->
+    <div id="room-list-section" class="hidden pt-4 border-t border-slate-700">
+      <p class="text-slate-400 text-sm mb-3">📋 等待中的房間</p>
+      <div id="room-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+
+      <div id="selected-room-area" class="hidden mt-3 p-4 bg-slate-700/50 rounded-xl text-center">
+        <p class="text-white font-bold mb-2">房間 <span id="selected-room-code" class="text-blue-400">----</span></p>
+        <div id="qrcode-selected" class="flex justify-center mb-3 min-h-[120px]"></div>
+        <div class="flex gap-2 justify-center">
+          <button onclick="joinSelectedRoom()" class="py-2 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition">加入對戰</button>
+          <button onclick="cancelRoomSelection()" class="py-2 px-6 rounded-xl bg-slate-600 hover:bg-slate-500 text-white font-bold transition">取消</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -221,8 +252,13 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
 
 <!-- ====== SCREEN: GAME ====== -->
 <div id="screen-game" class="screen min-h-screen flex flex-col p-3">
-  <!-- Top: HP Bars -->
-  <div class="flex items-start gap-3 mb-2">
+  <!-- Top bar -->
+  <div class="flex justify-between items-center mb-1">
+    <span class="text-slate-500 text-sm">⚔️ 數學對戰</span>
+    <button onclick="backToLobby()" class="text-sm text-slate-400 hover:text-white transition px-2 py-1 rounded hover:bg-slate-800">✕ 回到大廳</button>
+  </div>
+  <!-- HP Bars -->
+  <div id="hp-bar-area" class="flex items-start gap-3 mb-2">
     <!-- Player 1 (left side, me or opponent) -->
     <div id="game-p1" class="flex-1">
       <div class="flex items-center gap-2 mb-1">
@@ -371,6 +407,43 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
   </div>
 </div>
 
+<!-- ====== SCREEN: PRACTICE RESULT ====== -->
+<div id="screen-practice-result" class="screen min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-md w-full text-center space-y-6 slide-up">
+    <div class="text-6xl mb-2">📊</div>
+    <h2 class="text-3xl font-bold text-white mb-1">測試結果</h2>
+
+    <div class="bg-slate-800/50 rounded-2xl p-6 space-y-4">
+      <div class="flex justify-between text-white text-lg">
+        <span>📋 總輪數</span>
+        <span id="pr-total" class="font-bold">0</span>
+      </div>
+      <div class="flex justify-between text-emerald-400 text-lg">
+        <span>✅ 全部答對</span>
+        <span id="pr-correct" class="font-bold">0</span>
+      </div>
+      <div class="flex justify-between text-red-400 text-lg">
+        <span>❌ 有答錯</span>
+        <span id="pr-wrong" class="font-bold">0</span>
+      </div>
+      <div class="flex justify-between text-blue-400 text-lg">
+        <span>🕐 花費時間</span>
+        <span id="pr-time" class="font-bold">0 秒</span>
+      </div>
+
+      <div class="pt-3 border-t border-slate-700">
+        <p class="text-slate-400 text-sm mb-2">各輪詳細</p>
+        <div id="pr-detail" class="space-y-1 text-sm max-h-48 overflow-y-auto"></div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 justify-center">
+      <button onclick="startPractice()" class="py-3 px-8 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-lg transition">再測一次</button>
+      <button onclick="backToLobby()" class="py-3 px-8 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold text-lg transition">回到大廳</button>
+    </div>
+  </div>
+</div>
+
 <!-- ====== FEEDBACK OVERLAY ====== -->
 <div id="feedback-overlay" class="feedback-overlay">
   <div class="feedback-icon"></div>
@@ -468,6 +541,13 @@ function resetLobbyUI() {
   document.getElementById('input-nickname').placeholder = '輸入暱稱';
   document.getElementById('hp-slider').value = '100';
   document.getElementById('hp-display').textContent = '100';
+  document.getElementById('practice-config').classList.add('hidden');
+  document.getElementById('btn-start-practice').disabled = true;
+  document.querySelectorAll('.practice-rbtn').forEach(function(b) {
+    b.classList.remove('bg-indigo-600');
+    b.classList.add('bg-slate-700');
+  });
+  practiceRounds = 0;
 }
 
 function toggleJoin() {
@@ -513,6 +593,7 @@ function createRoom() {
   G.roomRef.once('value').then(snap => {
     if (snap.exists()) { showError('代號衝突，請重試'); return; }
 
+    stopRoomListListener();
     G.roomRef.set({
       status: 'waiting',
       maxHp: G.maxHp,
@@ -551,6 +632,7 @@ function confirmJoin() {
     // Join as p2
     G.playerId = 'p2';
     G.maxHp = data.maxHp;
+    stopRoomListListener();
     G.roomRef.child('players/p2').set({
       name: G.playerName,
       color: G.playerColor,
@@ -579,6 +661,7 @@ function cancelRoom() {
   G.roomCode = null;
   resetLobbyUI();
   showScreen('screen-lobby');
+  startRoomListListener();
 }
 
 function selectColor(color) {
@@ -1066,6 +1149,7 @@ function showDamageFloat(target, amount) {
 }
 
 function applyLevelDamage(correct) {
+  if (G.mode === 'single') return;
   const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
   const updates = {};
   let target;
@@ -1253,6 +1337,20 @@ function finishRound() {
   const l3ok = G.l3Answer === 'correct';
   const allCorrect = l1ok && l2ok && l3ok;
 
+  if (G.mode === 'single') {
+    G.stats.roundResults.push({ l1: l1ok, l2: l2ok, l3: l3ok, allCorrect: allCorrect });
+    document.getElementById('round-result').classList.remove('hidden');
+    document.getElementById('rr-text').innerHTML = allCorrect
+      ? '✅ 第 ' + G.currentRound + ' 輪 全部正確！'
+      : '❌ 第 ' + G.currentRound + ' 輪 有答錯的關卡';
+    var more = G.currentRound < practiceRounds;
+    setTimeout(function() {
+      if (more) { nextRound(); }
+      else { showPracticeResult(); }
+    }, 1200);
+    return;
+  }
+
   G._advancingRound = false;
 
   // 三關全對額外加5分（每關2分已在 submit 時即時扣除）
@@ -1347,6 +1445,218 @@ function updateComboDisplay() {
     p1Combo.classList.toggle('hidden', G.opponentCombo === 0);
     p1Combo.textContent = `🔥 x${G.opponentCombo}`;
   }
+}
+
+// =====================================================
+// ROOM LIST (LOBBY)
+// =====================================================
+let selectedRoomCode = null;
+let roomsListRef = null;
+let roomsListListener = null;
+
+function startRoomListListener() {
+  stopRoomListListener();
+  roomsListRef = db.ref('rooms');
+  roomsListListener = roomsListRef.on('value', snap => {
+    updateRoomList(snap);
+    cleanupStaleRooms(snap);
+  });
+}
+
+function stopRoomListListener() {
+  if (roomsListRef && roomsListListener) {
+    try { roomsListRef.off('value', roomsListListener); } catch(e) {}
+  }
+  roomsListRef = null;
+  roomsListListener = null;
+}
+
+function updateRoomList(snap) {
+  const list = document.getElementById('room-list');
+  const section = document.getElementById('room-list-section');
+  if (!list || !section) return;
+  list.innerHTML = '';
+  let hasRooms = false;
+  let selectedStillExists = false;
+
+  snap.forEach(child => {
+    const room = child.val();
+    if (room.status === 'waiting' && room.players && room.players.p1 && room.players.p1.name) {
+      hasRooms = true;
+      const code = child.key;
+      const hostName = room.players.p1.name;
+      if (code === selectedRoomCode) selectedStillExists = true;
+      const div = document.createElement('div');
+      div.className = 'room-item flex items-center justify-between p-3 rounded-xl bg-slate-700/50 hover:bg-slate-700 cursor-pointer transition';
+      if (code === selectedRoomCode) div.className += ' ring-2 ring-blue-500';
+      div.innerHTML = '<div><span class="text-blue-400 font-bold tracking-wider">' + code + '</span><span class="text-slate-400 ml-2">👤 ' + escapeHtml(hostName) + '</span></div><span class="text-slate-500 text-sm">等待中</span>';
+      div.onclick = function() { selectRoom(code, hostName); };
+      list.appendChild(div);
+    }
+  });
+
+  section.classList.toggle('hidden', !hasRooms);
+  if (!hasRooms || !selectedStillExists) cancelRoomSelection();
+}
+
+function escapeHtml(str) {
+  var d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function cleanupStaleRooms(snap) {
+  var now = Date.now();
+  var fiveMin = 5 * 60 * 1000;
+  snap.forEach(function(child) {
+    var room = child.val();
+    if (room.status === 'waiting' && room.createdAt) {
+      if (now - room.createdAt > fiveMin) {
+        child.ref.remove();
+      }
+    }
+  });
+}
+
+function selectRoom(code, hostName) {
+  selectedRoomCode = code;
+  document.querySelectorAll('.room-item').forEach(function(el) {
+    var codeEl = el.querySelector('.text-blue-400');
+    var isSelected = codeEl && codeEl.textContent.trim() === code;
+    el.classList.toggle('ring-2', isSelected);
+    el.classList.toggle('ring-blue-500', isSelected);
+  });
+  var area = document.getElementById('selected-room-area');
+  area.classList.remove('hidden');
+  document.getElementById('selected-room-code').textContent = code;
+  var qrUrl = window.location.origin + window.location.pathname + '?join=' + code;
+  var qrContainer = document.getElementById('qrcode-selected');
+  qrContainer.innerHTML = '';
+  if (typeof qrcode !== 'undefined') {
+    var qr = qrcode(0, 'M');
+    qr.addData(qrUrl);
+    qr.make();
+    qrContainer.innerHTML = qr.createSvgTag({ cellSize: 6, margin: 4 });
+    var svg = qrContainer.querySelector('svg');
+    if (svg) { svg.setAttribute('width', '130'); svg.setAttribute('height', '130'); }
+  }
+}
+
+function cancelRoomSelection() {
+  selectedRoomCode = null;
+  var area = document.getElementById('selected-room-area');
+  if (area) area.classList.add('hidden');
+  document.querySelectorAll('.room-item').forEach(function(el) {
+    el.classList.remove('ring-2', 'ring-blue-500');
+  });
+}
+
+function joinSelectedRoom() {
+  if (!selectedRoomCode) return;
+  var name = document.getElementById('input-nickname').value.trim();
+  if (!name) { showError('請先輸入暱稱'); return; }
+  G.playerName = name;
+  G.playerColor = G.playerColor || 'blue';
+  G.isHost = false;
+  G.playerId = 'p2';
+  G.roomCode = selectedRoomCode;
+  G.roomRef = db.ref('rooms/' + selectedRoomCode);
+  G.roomRef.once('value').then(function(snap) {
+    if (!snap.exists()) { showError('房間不存在'); return; }
+    var data = snap.val();
+    if (data.status !== 'waiting') { showError('房間已滿或已開始'); return; }
+    if (data.players.p2 && data.players.p2.name) { showError('房間已滿'); return; }
+    G.maxHp = data.maxHp;
+    stopRoomListListener();
+    G.roomRef.child('players/p2').set({
+      name: G.playerName,
+      color: G.playerColor,
+      hp: data.maxHp,
+      combo: 0,
+      round: 0
+    }).then(function() {
+      G.roomRef.child('status').set('started');
+      enterWaitingRoom();
+    });
+  });
+}
+
+// =====================================================
+// PRACTICE MODE (SINGLE PLAYER)
+// =====================================================
+var practiceRounds = 0;
+
+function togglePractice() {
+  var config = document.getElementById('practice-config');
+  config.classList.toggle('hidden');
+  if (!config.classList.contains('hidden')) {
+    cancelRoomSelection();
+    document.getElementById('join-input-area').classList.add('hidden');
+  }
+}
+
+function setPracticeRounds(n) {
+  practiceRounds = n;
+  document.querySelectorAll('.practice-rbtn').forEach(function(b) {
+    var num = parseInt(b.textContent);
+    b.classList.toggle('bg-indigo-600', num === n);
+    b.classList.toggle('text-white', num === n);
+    b.classList.toggle('bg-slate-700', num !== n);
+  });
+  document.getElementById('btn-start-practice').disabled = false;
+}
+
+function startPractice() {
+  if (practiceRounds === 0) return;
+  resetPracticeState();
+  showScreen('screen-game');
+  document.getElementById('hp-bar-area').classList.add('hidden');
+  document.getElementById('waiting-opponent').classList.add('hidden');
+  document.getElementById('round-result').classList.add('hidden');
+  document.querySelector('#screen-game .layer')?.classList.add('hidden');
+  setTimeout(function() { nextRound(); }, 300);
+}
+
+function resetPracticeState() {
+  G.mode = 'single';
+  G.currentRound = 0;
+  G.combo = 0;
+  G.hp = 100;
+  G._gameStarted = true;
+  G.stats = { roundResults: [], startTime: Date.now() };
+  if (G.roomRef) {
+    G.roomRef.remove();
+    G.roomRef = null;
+  }
+  G.roomCode = null;
+  G.isHost = false;
+  G.playerId = 'p1';
+  cleanupFirebase();
+  cancelRoomSelection();
+}
+
+function showPracticeResult() {
+  var stats = G.stats;
+  var elapsed = Math.round((Date.now() - stats.startTime) / 1000);
+  var total = stats.roundResults.length;
+  var correct = 0, wrong = 0;
+  stats.roundResults.forEach(function(r) { if (r.allCorrect) correct++; else wrong++; });
+
+  document.getElementById('pr-total').textContent = total;
+  document.getElementById('pr-correct').textContent = correct;
+  document.getElementById('pr-wrong').textContent = wrong;
+  document.getElementById('pr-time').textContent = elapsed + ' 秒';
+
+  var detail = document.getElementById('pr-detail');
+  detail.innerHTML = '';
+  stats.roundResults.forEach(function(r, i) {
+    var d = document.createElement('div');
+    d.className = 'flex items-center justify-between p-2 rounded-lg ' + (r.allCorrect ? 'bg-emerald-900/30' : 'bg-red-900/30');
+    var icons = (r.l1 ? '✅' : '❌') + ' ' + (r.l2 ? '✅' : '❌') + ' ' + (r.l3 ? '✅' : '❌');
+    d.innerHTML = '<span class="text-slate-300">第' + (i + 1) + '輪</span><span>' + icons + '</span>';
+    detail.appendChild(d);
+  });
+  showScreen('screen-practice-result');
 }
 
 // =====================================================
@@ -1498,6 +1808,7 @@ function playAgain() {
 }
 
 function backToLobby() {
+  cancelRoomSelection();
   cleanupFirebase();
   if (G.roomRef) {
     if (G.isHost) G.roomRef.remove();
@@ -1506,8 +1817,11 @@ function backToLobby() {
   G.roomRef = null;
   G.roomCode = null;
   G._gameStarted = false;
+  G.mode = null;
+  document.getElementById('hp-bar-area').classList.remove('hidden');
   resetLobbyUI();
   showScreen('screen-lobby');
+  startRoomListListener();
 }
 
 // =====================================================
@@ -1524,6 +1838,7 @@ function cleanupFirebase() {
 // AUTO-JOIN FROM URL
 // =====================================================
 document.addEventListener('DOMContentLoaded', () => {
+  startRoomListListener();
   const params = new URLSearchParams(window.location.search);
   const joinCode = params.get('join');
   if (joinCode && joinCode.length === 4) {
