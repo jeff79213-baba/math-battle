@@ -112,6 +112,49 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
 ::-webkit-scrollbar-track { background: #0f172a; }
 ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
 
+/* Boss HP bar */
+.boss-hp-bg { width: 100%; height: 28px; background: #1e293b; border-radius: 14px; overflow: hidden; position: relative; border: 2px solid #7c2d12; }
+.boss-hp-fill { height: 100%; border-radius: 12px; transition: width .5s ease; background: linear-gradient(90deg, #dc2626, #ef4444, #f97316); position: relative; }
+.boss-hp-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 14px; font-weight: bold; color: white; text-shadow: 0 1px 4px rgba(0,0,0,.8); z-index: 1; }
+
+/* Boss attack timer */
+.boss-timer-bg { width: 100%; height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden; }
+.boss-timer-fill { height: 100%; border-radius: 3px; transition: width .1s linear; background: linear-gradient(90deg, #f97316, #ef4444); }
+
+/* Boss emoji animation */
+.boss-emoji { font-size: 72px; line-height: 1; display: inline-block; transition: transform .15s; }
+.boss-emoji.attack { animation: bossAttack .6s ease; }
+@keyframes bossAttack {
+  0% { transform: scale(1) translateY(0); }
+  30% { transform: scale(1.2) translateY(-10px); }
+  60% { transform: scale(1.1) translateY(5px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+/* Boss shake */
+.boss-shake { animation: bossShake .5s ease; }
+@keyframes bossShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px) rotate(-3deg); }
+  40% { transform: translateX(8px) rotate(3deg); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+/* Boss hit flash */
+.boss-hit-flash { animation: bossHitFlash .4s ease; }
+@keyframes bossHitFlash {
+  0% { filter: brightness(2); }
+  50% { filter: brightness(0.5); }
+  100% { filter: brightness(1); }
+}
+
+/* Compact player HP in boss mode */
+.player-hp-compact { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; background: #1e293b; }
+.player-hp-compact .hp-mini { width: 60px; height: 12px; border-radius: 6px; background: #334155; overflow: hidden; }
+.player-hp-compact .hp-mini-fill { height: 100%; border-radius: 6px; transition: width .5s ease; }
+.player-hp-compact .hp-mini-text { font-size: 11px; font-weight: bold; color: #cbd5e1; min-width: 24px; text-align: right; }
+
 /* Waiting pulse */
 .waiting-pulse { animation: pulse 1.5s infinite; }
 
@@ -142,10 +185,57 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
       </p>
       <p class="text-slate-400">希望你們玩得愉快 🎮</p>
     </div>
-    <button onclick="enterLobby()"
+    <button onclick="showModeSelect()"
       class="py-4 px-16 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-2xl transition shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40 active:scale-95">
       進入遊戲
     </button>
+  </div>
+</div>
+
+<!-- ====== SCREEN: MODE SELECT ====== -->
+<div id="screen-mode" class="screen min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-md w-full text-center space-y-6 slide-up">
+    <div class="text-6xl mb-2">⚔️</div>
+    <h2 class="text-3xl font-bold text-white">選擇遊戲模式</h2>
+    <div class="space-y-4">
+      <button onclick="selectMode('pvp')"
+        class="w-full py-6 px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xl transition shadow-lg hover:shadow-blue-500/30 active:scale-95">
+        <div class="text-4xl mb-2">👤 VS 👤</div>
+        <div>玩家對戰</div>
+        <div class="text-sm text-blue-200 mt-1 font-normal">兩位玩家互相對戰</div>
+      </button>
+      <button onclick="selectMode('boss')"
+        class="w-full py-6 px-8 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xl transition shadow-lg hover:shadow-purple-500/30 active:scale-95">
+        <div class="text-4xl mb-2">👤👤 VS 🐉</div>
+        <div>打王模式</div>
+        <div class="text-sm text-purple-200 mt-1 font-normal">合作擊敗魔王！</div>
+      </button>
+    </div>
+    <button onclick="showScreen('screen-hero')"
+      class="py-2 px-6 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold transition">返回</button>
+  </div>
+</div>
+
+<!-- Player Count Select (for boss mode) -->
+<div id="screen-player-count" class="screen min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-md w-full text-center space-y-6 slide-up">
+    <div class="text-6xl mb-2">🐉</div>
+    <h2 class="text-3xl font-bold text-white">選擇挑戰人數</h2>
+    <p class="text-slate-400">選擇一起討伐魔王的玩家人數</p>
+    <div class="flex gap-4 justify-center">
+      <button onclick="setPlayerCount(2)"
+        class="player-count-btn py-8 px-10 rounded-2xl bg-slate-700 hover:bg-purple-600 text-white font-bold text-xl transition active:scale-95" data-count="2">
+        <div class="text-5xl mb-2">👤👤</div>
+        <div>2 人</div>
+      </button>
+      <button onclick="setPlayerCount(3)"
+        class="player-count-btn py-8 px-10 rounded-2xl bg-slate-700 hover:bg-purple-600 text-white font-bold text-xl transition active:scale-95" data-count="3">
+        <div class="text-5xl mb-2">👤👤👤</div>
+        <div>3 人</div>
+      </button>
+    </div>
+    <button onclick="showScreen('screen-mode')"
+      class="py-2 px-6 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold transition">返回</button>
   </div>
 </div>
 
@@ -154,6 +244,8 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
   <div class="max-w-md w-full space-y-6 text-center slide-up">
 
     <div class="bg-slate-800/50 rounded-2xl p-6 space-y-4">
+
+      <div id="mode-tag" class="text-center text-sm text-slate-400 mb-2"></div>
 
       <div class="grid grid-cols-2 gap-3">
         <button onclick="toggleCreateForm()"
@@ -248,15 +340,21 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
         <span>等待第二位玩家...</span>
       </div>
 
+      <div id="mode-waiting-tag" class="text-xs text-slate-500 mb-1"></div>
       <div id="player-in-room" class="flex justify-center gap-6 pt-2">
         <div id="waiting-p1" class="text-center">
           <div class="fighter mx-auto" id="fighter-waiting-p1">🧙‍♂️</div>
           <p id="waiting-p1-name" class="text-white font-bold mt-1">---</p>
         </div>
-        <div class="flex items-center text-3xl text-slate-600">VS</div>
+        <div class="flex items-center text-3xl text-slate-600" id="waiting-vs-label">VS</div>
         <div id="waiting-p2" class="text-center opacity-40">
           <div class="fighter mx-auto">🧹</div>
-          <p class="text-slate-500 font-bold mt-1">???</p>
+          <p id="waiting-p2-name" class="text-slate-500 font-bold mt-1">???</p>
+        </div>
+        <!-- p3 slot for boss 3-player mode -->
+        <div id="waiting-p3" class="text-center opacity-40 hidden">
+          <div class="fighter mx-auto">🧹</div>
+          <p id="waiting-p3-name" class="text-slate-500 font-bold mt-1">???</p>
         </div>
       </div>
     </div>
@@ -285,9 +383,8 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
     <span class="text-slate-500 text-sm">⚔️ 數學對戰</span>
     <button onclick="backToLobby()" class="text-sm text-slate-400 hover:text-white transition px-2 py-1 rounded hover:bg-slate-800">✕ 回到大廳</button>
   </div>
-  <!-- HP Bars -->
-  <div id="hp-bar-area" class="flex items-start gap-3 mb-2">
-    <!-- Player 1 (left side, me or opponent) -->
+  <!-- PvP HP Bars -->
+  <div id="hp-bar-area-pvp" class="flex items-start gap-3 mb-2">
     <div id="game-p1" class="flex-1">
       <div class="flex items-center gap-2 mb-1">
         <div id="fighter-p1" class="fighter">🧙‍♂️</div>
@@ -303,10 +400,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
         </div>
       </div>
     </div>
-
     <div class="text-2xl font-bold text-slate-500 pt-3">VS</div>
-
-    <!-- Player 2 (right side) -->
     <div id="game-p2" class="flex-1">
       <div class="flex items-center gap-2 mb-1 flex-row-reverse">
         <div id="fighter-p2" class="fighter">😈</div>
@@ -321,6 +415,38 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Boss HUD -->
+  <div id="hp-bar-area-boss" class="hidden mb-2">
+    <!-- Boss HP + timer -->
+    <div class="bg-slate-800/60 rounded-xl p-3 mb-2">
+      <div class="flex items-center gap-3 mb-1">
+        <div id="boss-emoji" class="boss-emoji">🐉</div>
+        <div class="flex-1">
+          <div class="flex justify-between items-center mb-0.5">
+            <span class="text-orange-300 font-bold text-sm">🔥 魔王</span>
+            <span id="boss-hp-text" class="text-white font-bold text-sm">200/200</span>
+          </div>
+          <div class="boss-hp-bg">
+            <div id="boss-hp-fill" class="boss-hp-fill" style="width:100%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 mt-1">
+        <span class="text-slate-400 text-xs">⚡ 下次攻擊</span>
+        <div class="flex-1 boss-timer-bg">
+          <div id="boss-timer-fill" class="boss-timer-fill" style="width:100%"></div>
+        </div>
+        <span id="boss-timer-text" class="text-slate-300 text-xs font-bold w-6 text-right">10</span>
+      </div>
+    </div>
+    <!-- Players HP compact row -->
+    <div id="boss-players-row" class="flex gap-1 justify-center"></div>
+    <!-- Flawless streak -->
+    <div id="boss-streak" class="hidden text-center mt-1">
+      <span class="text-yellow-400 text-xs font-bold">🔥 連續全對 x<span id="streak-count">0</span></span>
     </div>
   </div>
 
@@ -415,7 +541,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
     <h2 id="result-title" class="text-4xl font-bold text-white">---</h2>
     <p id="result-subtitle" class="text-slate-400 text-lg">---</p>
 
-    <div class="bg-slate-800/50 rounded-2xl p-6 space-y-3">
+    <div id="result-pvp-players" class="bg-slate-800/50 rounded-2xl p-6 space-y-3">
       <div class="flex justify-between text-white">
         <span id="result-p1-name">---</span>
         <span id="result-p1-hp">0</span>
@@ -424,6 +550,18 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
         <span id="result-p2-name">---</span>
         <span id="result-p2-hp">0</span>
       </div>
+    </div>
+
+    <!-- Boss result info -->
+    <div id="result-boss-info" class="hidden bg-slate-800/50 rounded-2xl p-6 space-y-3">
+      <div class="flex items-center gap-3 justify-center">
+        <span class="text-5xl">🐉</span>
+        <div class="text-left">
+          <p class="text-slate-400 text-sm">魔王已擊敗</p>
+          <p id="result-boss-hp" class="text-white font-bold">0/0</p>
+        </div>
+      </div>
+      <div id="result-boss-players" class="space-y-2"></div>
     </div>
 
     <div class="flex gap-3 justify-center">
@@ -510,12 +648,15 @@ const COLOR_MAP = {
 // GAME STATE
 // =====================================================
 const G = {
-  playerId: null,       // 'p1' or 'p2'
+  playerId: null,       // 'p1' or 'p2' (or 'p3' for boss)
   playerName: '',
   playerColor: 'blue',
   roomCode: null,
   roomRef: null,
   listeners: [],        // cleanup
+
+  gameMode: 'pvp',      // 'pvp' | 'boss'
+  maxPlayers: 2,
 
   maxHp: 100,
   hp: 100,
@@ -534,11 +675,21 @@ const G = {
   // Is it my turn to generate questions? (host = p1)
   isHost: false,
   roundDone: false,     // have I submitted this round?
+  _advancingRound: false,
 
+  // PvP opponent
   opponentName: '',
   opponentColor: 'red',
   opponentHp: 100,
   opponentCombo: 0,
+
+  // Boss mode
+  bossHp: 0,
+  bossMaxHp: 0,
+  bossLastAttack: 0,    // timestamp of last boss attack
+  streak: 0,             // consecutive flawless rounds
+  bossTimerId: null,     // interval id for boss attack timer
+  bossPlayers: {},       // all players in boss mode {p1:{name,color,hp,combo}, p2:{...}}
 };
 
 // =====================================================
@@ -557,6 +708,34 @@ function showError(msg) {
 }
 
 // =====================================================
+// MODE SELECT
+// =====================================================
+function showModeSelect() {
+  G.gameMode = null;
+  G.maxPlayers = 2;
+  showScreen('screen-mode');
+}
+
+function selectMode(mode) {
+  G.gameMode = mode;
+  if (mode === 'boss') {
+    showScreen('screen-player-count');
+  } else {
+    enterLobby();
+  }
+}
+
+function setPlayerCount(n) {
+  G.maxPlayers = n;
+  // Highlight selected
+  document.querySelectorAll('.player-count-btn').forEach(b => {
+    b.classList.toggle('bg-purple-600', parseInt(b.dataset.count) === n);
+    b.classList.toggle('bg-slate-700', parseInt(b.dataset.count) !== n);
+  });
+  enterLobby();
+}
+
+// =====================================================
 // LOBBY
 // =====================================================
 let joinMode = false;
@@ -564,6 +743,15 @@ let joinMode = false;
 function enterLobby() {
   cancelRoomSelection();
   resetLobbyUI();
+  // Show mode tag in lobby
+  var modeTag = document.getElementById('mode-tag');
+  if (G.gameMode === 'boss') {
+    modeTag.innerHTML = '🐉 打王模式 ' + G.maxPlayers + '人';
+    modeTag.classList.remove('hidden');
+  } else {
+    modeTag.innerHTML = '⚔️ PvP 模式';
+    modeTag.classList.remove('hidden');
+  }
   showScreen('screen-lobby');
   startRoomListListener();
 }
@@ -600,6 +788,7 @@ function resetLobbyUI() {
   document.getElementById('hp-display').textContent = '100';
   document.getElementById('practice-config').classList.add('hidden');
   document.getElementById('btn-start-practice').disabled = true;
+  document.getElementById('mode-tag').textContent = '';
   document.querySelectorAll('.practice-rbtn').forEach(function(b) {
     b.classList.remove('bg-indigo-600');
     b.classList.add('bg-slate-700');
@@ -637,7 +826,9 @@ function createRoom() {
     if (snap.exists()) { showError('代號衝突，請重試'); return; }
 
     stopRoomListListener();
-    G.roomRef.set({
+    var roomData = {
+      mode: G.gameMode || 'pvp',
+      maxPlayers: G.gameMode === 'boss' ? G.maxPlayers : 2,
       status: 'waiting',
       maxHp: G.maxHp,
       createdAt: firebase.database.ServerValue.TIMESTAMP,
@@ -646,7 +837,21 @@ function createRoom() {
         p2: { name: '', color: '', hp: G.maxHp, combo: 0, round: 0 }
       },
       winner: null
-    }).then(() => {
+    };
+
+    // Add p3 for 3-player boss mode
+    if (G.gameMode === 'boss' && G.maxPlayers === 3) {
+      roomData.players.p3 = { name: '', color: '', hp: G.maxHp, combo: 0, round: 0 };
+    }
+
+    // Boss mode: add boss state
+    if (G.gameMode === 'boss') {
+      var bossHp = G.maxPlayers === 2 ? 200 : 300;
+      roomData.boss = { hp: bossHp, maxHp: bossHp, lastAttack: Date.now() };
+    }
+
+    stopRoomListListener();
+    G.roomRef.set(roomData).then(() => {
       enterWaitingRoom();
     });
   });
@@ -661,7 +866,6 @@ function confirmJoin() {
   G.playerName = name;
   G.playerColor = G.playerColor || document.querySelector('.color-btn.selected')?.dataset.color || 'blue';
   G.isHost = false;
-  G.playerId = 'p2';
 
   G.roomCode = code;
   G.roomRef = db.ref('rooms/' + code);
@@ -670,13 +874,23 @@ function confirmJoin() {
     if (!snap.exists()) { showError('房間不存在'); return; }
     const data = snap.val();
     if (data.status !== 'waiting') { showError('房間已滿或已開始'); return; }
-    if (data.players.p2.name) { showError('房間已滿'); return; }
 
-    // Join as p2
-    G.playerId = 'p2';
+    // Determine which player slot to take
+    var targetSlot = null;
+    if (!data.players.p2 || !data.players.p2.name) {
+      targetSlot = 'p2';
+    } else if (data.mode === 'boss' && data.maxPlayers === 3 && (!data.players.p3 || !data.players.p3.name)) {
+      targetSlot = 'p3';
+    } else {
+      showError('房間已滿'); return;
+    }
+
+    G.playerId = targetSlot;
     G.maxHp = data.maxHp;
+    G.gameMode = data.mode || 'pvp';
+    G.maxPlayers = data.maxPlayers || 2;
     stopRoomListListener();
-    G.roomRef.child('players/p2').set({
+    G.roomRef.child('players/' + targetSlot).set({
       name: G.playerName,
       color: G.playerColor,
       hp: data.maxHp,
@@ -695,7 +909,8 @@ function cancelRoom() {
     if (G.isHost) {
       G.roomRef.remove();
     } else {
-      G.roomRef.child('players/p2').set({ name: '', color: '', hp: G.maxHp, combo: 0, round: 0 });
+      var clearData = { name: '', color: '', hp: G.maxHp, combo: 0, round: 0 };
+      G.roomRef.child('players/' + G.playerId).set(clearData);
       G.roomRef.child('status').set('waiting');
     }
   }
@@ -725,6 +940,24 @@ function selectColor(color) {
 function enterWaitingRoom() {
   showScreen('screen-waiting');
   document.getElementById('room-code-display').textContent = G.roomCode;
+
+  // Show mode tag in waiting room
+  var modeTag = document.getElementById('mode-waiting-tag');
+  if (G.gameMode === 'boss') {
+    modeTag.textContent = '🐉 打王模式 ' + G.maxPlayers + '人合作';
+    document.getElementById('waiting-vs-label').textContent = '🤝';
+  } else {
+    modeTag.textContent = '⚔️ PvP 對戰';
+    document.getElementById('waiting-vs-label').textContent = 'VS';
+  }
+
+  // Show/hide p3 slot
+  var p3el = document.getElementById('waiting-p3');
+  if (G.gameMode === 'boss' && G.maxPlayers === 3) {
+    p3el.classList.remove('hidden');
+  } else {
+    p3el.classList.add('hidden');
+  }
 
   // Show my name
   if (G.playerId === 'p1') {
@@ -768,7 +1001,6 @@ function enterWaitingRoom() {
   const ref = G.roomRef;
   const listener = ref.on('value', snap => {
     if (!snap.exists()) {
-      // Room deleted
       alert('房間已被關閉');
       backToLobby();
       return;
@@ -784,24 +1016,65 @@ function enterWaitingRoom() {
     // Check if p2 has joined
     if (data.players.p2 && data.players.p2.name) {
       document.getElementById('waiting-p2').classList.remove('opacity-40');
-      const p2Name = document.getElementById('waiting-p2').querySelector('p');
-      p2Name.textContent = data.players.p2.name;
-      const p2Fighter = document.getElementById('waiting-p2').querySelector('.fighter');
+      document.getElementById('waiting-p2-name').textContent = data.players.p2.name;
+      var p2Fighter = document.getElementById('waiting-p2').querySelector('.fighter');
       applyFighterColorToEl(p2Fighter, data.players.p2.color || 'red');
+    }
 
-      // Store opponent info
-      const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
-      const opp = data.players[oppId];
-      if (opp && opp.name) {
-        G.opponentName = opp.name;
-        G.opponentColor = opp.color || 'red';
-      }
+    // Check if p3 has joined (boss 3-player)
+    if (data.players.p3 && data.players.p3.name) {
+      document.getElementById('waiting-p3').classList.remove('opacity-40');
+      document.getElementById('waiting-p3-name').textContent = data.players.p3.name;
+      var p3Fighter = document.getElementById('waiting-p3').querySelector('.fighter');
+      applyFighterColorToEl(p3Fighter, data.players.p3.color || 'purple');
+    }
 
-      // After p2 joins, start the game
-      if (!G._gameStarted && data.players.p1 && data.players.p2 && data.players.p2.name) {
-        G._gameStarted = true;
-        setTimeout(() => startGame(data), 800);
+    // Store mode info & update mode tag
+    if (data.mode) {
+      G.gameMode = data.mode;
+      G.maxPlayers = data.maxPlayers || 2;
+      var modeTag = document.getElementById('mode-waiting-tag');
+      if (G.gameMode === 'boss') {
+        modeTag.textContent = '🐉 打王模式 ' + G.maxPlayers + '人合作';
+        document.getElementById('waiting-vs-label').textContent = '🤝';
+      } else {
+        modeTag.textContent = '⚔️ PvP 對戰';
+        document.getElementById('waiting-vs-label').textContent = 'VS';
       }
+      var p3el = document.getElementById('waiting-p3');
+      if (G.gameMode === 'boss' && G.maxPlayers === 3) {
+        p3el.classList.remove('hidden');
+      } else {
+        p3el.classList.add('hidden');
+      }
+    }
+
+    // Check if all players have joined
+    var allJoined = data.players.p1 && data.players.p1.name && data.players.p2 && data.players.p2.name;
+    if (G.gameMode === 'boss' && G.maxPlayers === 3) {
+      allJoined = allJoined && data.players.p3 && data.players.p3.name;
+    }
+
+    if (allJoined && !G._gameStarted) {
+      // Store opponent/teammate info
+      var otherPlayers = Object.keys(data.players).filter(id => id !== G.playerId);
+      otherPlayers.forEach(function(id) {
+        var p = data.players[id];
+        if (p && p.name) {
+          if (G.gameMode === 'pvp') {
+            G.opponentName = p.name;
+            G.opponentColor = p.color || 'red';
+          }
+        }
+      });
+
+      G._gameStarted = true;
+      setTimeout(function() {
+        // Load mode from room data
+        G.gameMode = data.mode || 'pvp';
+        G.maxPlayers = data.maxPlayers || 2;
+        startGame(data);
+      }, 800);
     }
   });
   G.listeners.push({ ref, listener, event: 'value' });
@@ -825,19 +1098,57 @@ function startGame(data) {
   showScreen('screen-game');
 
   try {
-    const me = data.players[G.playerId] || {};
-    const opp = data.players[G.playerId === 'p1' ? 'p2' : 'p1'] || {};
-
-    G.hp = me.hp ?? G.maxHp;
-    G.combo = me.combo ?? 0;
+    G.gameMode = data.mode || 'pvp';
+    G.maxPlayers = data.maxPlayers || 2;
     G.maxHp = data.maxHp ?? 100;
     G.currentRound = 0;
-    G.opponentName = opp.name ?? '對手';
-    G.opponentColor = opp.color ?? 'red';
-    G.opponentHp = opp.hp ?? G.maxHp;
-    G.opponentCombo = opp.combo ?? 0;
+    G.streak = 0;
 
-    setupGameUI(me, opp);
+    // Show/hide appropriate UI
+    var pvpArea = document.getElementById('hp-bar-area-pvp');
+    var bossArea = document.getElementById('hp-bar-area-boss');
+
+    if (G.gameMode === 'boss') {
+      pvpArea.classList.add('hidden');
+      bossArea.classList.remove('hidden');
+      document.getElementById('waiting-opponent').classList.add('hidden');
+
+      // Init boss state
+      G.bossHp = data.boss ? data.boss.hp : 200;
+      G.bossMaxHp = data.boss ? data.boss.maxHp : 200;
+      G.bossLastAttack = data.boss ? data.boss.lastAttack : Date.now();
+
+      // Init all boss players
+      G.bossPlayers = {};
+      Object.keys(data.players).forEach(function(id) {
+        var p = data.players[id];
+        if (p && p.name) {
+          G.bossPlayers[id] = { name: p.name, color: p.color || 'blue', hp: p.hp || G.maxHp, combo: p.combo || 0 };
+        }
+      });
+
+      var me = data.players[G.playerId] || {};
+      G.hp = me.hp ?? G.maxHp;
+      G.combo = me.combo ?? 0;
+
+      setupBossUI();
+      startBossTimer();
+    } else {
+      pvpArea.classList.remove('hidden');
+      bossArea.classList.add('hidden');
+
+      const me = data.players[G.playerId] || {};
+      const opp = data.players[G.playerId === 'p1' ? 'p2' : 'p1'] || {};
+
+      G.hp = me.hp ?? G.maxHp;
+      G.combo = me.combo ?? 0;
+      G.opponentName = opp.name ?? '對手';
+      G.opponentColor = opp.color ?? 'red';
+      G.opponentHp = opp.hp ?? G.maxHp;
+      G.opponentCombo = opp.combo ?? 0;
+
+      setupPVPUI(me, opp);
+    }
   } catch (e) {
     console.error('startGame error', e);
   }
@@ -848,10 +1159,7 @@ function startGame(data) {
   setTimeout(() => nextRound(), 500);
 }
 
-function setupGameUI(me, opp) {
-  const p1El = document.getElementById('game-p1');
-  const p2El = document.getElementById('game-p2');
-
+function setupPVPUI(me, opp) {
   if (G.playerId === 'p1') {
     document.getElementById('p1-name').textContent = me.name;
     document.getElementById('p2-name').textContent = opp.name;
@@ -862,12 +1170,248 @@ function setupGameUI(me, opp) {
     document.getElementById('p2-name').textContent = me.name;
     applyFighterColorToEl(document.querySelector('#fighter-p1'), G.opponentColor);
     applyFighterColorToEl(document.querySelector('#fighter-p2'), G.playerColor);
-
-    // Swap HP bar labels visually — we keep p1 on left, p2 on right always
   }
-
   updateHpDisplay();
   updateComboDisplay();
+}
+
+function setupBossUI() {
+  // Set boss emoji
+  document.getElementById('boss-emoji').textContent = '🐉';
+  updateBossDisplay();
+  updateBossPlayersRow();
+  updateHpDisplay();
+}
+
+function updateBossDisplay() {
+  var pct = Math.max(0, (G.bossHp / G.bossMaxHp) * 100);
+  var fill = document.getElementById('boss-hp-fill');
+  fill.style.width = pct + '%';
+  document.getElementById('boss-hp-text').textContent = Math.max(0, G.bossHp) + '/' + G.bossMaxHp;
+}
+
+function updateBossPlayersRow() {
+  var row = document.getElementById('boss-players-row');
+  row.innerHTML = '';
+  Object.keys(G.bossPlayers).sort().forEach(function(id) {
+    var p = G.bossPlayers[id];
+    var isMe = id === G.playerId;
+    var div = document.createElement('div');
+    div.className = 'player-hp-compact' + (isMe ? ' ring-1 ring-blue-500' : '');
+    var face = COLOR_MAP[p.color] ? COLOR_MAP[p.color].face : '🧙‍♂️';
+    var pct = Math.max(0, (p.hp / G.maxHp) * 100);
+    var barColor = pct > 50 ? '#22c55e' : pct > 25 ? '#eab308' : '#ef4444';
+    div.innerHTML = '<span class="text-sm">' + face + '</span>'
+      + '<span class="text-xs text-slate-300 font-bold truncate max-w-[40px]">' + p.name + '</span>'
+      + '<div class="hp-mini"><div class="hp-mini-fill" style="width:' + pct + '%;background:' + barColor + '"></div></div>'
+      + '<span class="hp-mini-text">' + Math.max(0, p.hp) + '</span>';
+    row.appendChild(div);
+  });
+}
+
+function updateBossStreak() {
+  var el = document.getElementById('boss-streak');
+  if (G.streak >= 2) {
+    el.classList.remove('hidden');
+    document.getElementById('streak-count').textContent = G.streak;
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
+// =====================================================
+// BOSS ATTACK TIMER
+// =====================================================
+function startBossTimer() {
+  stopBossTimer();
+  G.bossTimerId = setInterval(onBossTick, 200);
+}
+
+function stopBossTimer() {
+  if (G.bossTimerId) {
+    clearInterval(G.bossTimerId);
+    G.bossTimerId = null;
+  }
+}
+
+function onBossTick() {
+  if (!G.bossLastAttack) return;
+  var elapsed = Date.now() - G.bossLastAttack;
+  var interval = 10000;
+  var remaining = Math.max(0, interval - elapsed);
+  var pct = (remaining / interval) * 100;
+
+  var fill = document.getElementById('boss-timer-fill');
+  var text = document.getElementById('boss-timer-text');
+  if (fill) fill.style.width = pct + '%';
+  if (text) text.textContent = Math.ceil(remaining / 1000);
+
+  if (elapsed >= interval) {
+    bossAttack();
+  }
+}
+
+function bossAttack() {
+  if (!G.isHost) return;
+
+  G.bossLastAttack = Date.now();
+
+  var updates = {};
+  Object.keys(G.bossPlayers).forEach(function(id) {
+    var currentHp = G.bossPlayers[id].hp;
+    var newHp = Math.max(0, currentHp - 7);
+    G.bossPlayers[id].hp = newHp;
+    if (id === G.playerId) {
+      G.hp = newHp;
+    }
+    updates[id + '/hp'] = newHp;
+  });
+
+  G.roomRef.child('boss').update({ lastAttack: G.bossLastAttack });
+  G.roomRef.child('players').update(updates);
+
+  var bossEl = document.getElementById('boss-emoji');
+  if (bossEl) {
+    bossEl.classList.remove('attack');
+    void bossEl.offsetWidth;
+    bossEl.classList.add('attack');
+  }
+
+  updateBossPlayersRow();
+  updateHpDisplay();
+}
+
+// =====================================================
+// BOSS ROUND FINISH
+// =====================================================
+function bossFinishRound() {
+  var l1ok = G.l1Answer === 'correct';
+  var l2ok = G.l2Answer === 'correct';
+  var l3ok = G.l3Answer === 'correct';
+  var allCorrect = l1ok && l2ok && l3ok;
+
+  G.roundDone = true;
+
+  var updates = {};
+  updates[G.playerId + '/round'] = G.currentRound;
+  G.roomRef.child('players').update(updates);
+
+  if (allCorrect) {
+    var healAmt = 5;
+    var newHp = Math.min(G.maxHp, G.hp + healAmt);
+    G.hp = newHp;
+    if (G.bossPlayers[G.playerId]) G.bossPlayers[G.playerId].hp = newHp;
+    var hpUpdates = {};
+    hpUpdates[G.playerId + '/hp'] = newHp;
+    G.roomRef.child('players').update(hpUpdates);
+
+    showDamageFloat('self', -healAmt);
+    G.streak++;
+
+    if (G.streak >= 3 && G.streak % 3 === 0 && G.isHost) {
+      var teamHeal = 10;
+      var healUpdates = {};
+      Object.keys(G.bossPlayers).forEach(function(id) {
+        var cur = G.bossPlayers[id].hp;
+        var healed = Math.min(G.maxHp, cur + teamHeal);
+        G.bossPlayers[id].hp = healed;
+        if (id === G.playerId) G.hp = healed;
+        healUpdates[id + '/hp'] = healed;
+      });
+      G.roomRef.child('players').update(healUpdates);
+      document.getElementById('rr-text').innerHTML = '🔥 連續三輪全對！全體回血 <span class="text-green-400">+10</span>！';
+    } else {
+      document.getElementById('rr-text').innerHTML = '✅ 全對！回血 <span class="text-green-400">+5</span>';
+    }
+  } else {
+    G.streak = 0;
+    document.getElementById('rr-text').innerHTML = '💔 有答錯的關卡，連擊中斷！';
+  }
+
+  updateBossPlayersRow();
+  updateHpDisplay();
+  updateBossStreak();
+
+  document.getElementById('round-result').classList.remove('hidden');
+  waitBossRoundComplete();
+}
+
+function waitBossRoundComplete() {
+  var pRef = G.roomRef.child('players');
+  var pListener = pRef.on('value', function pCb(snap) {
+    if (!snap.exists()) return;
+    var players = snap.val();
+    var allDone = true;
+    Object.keys(G.bossPlayers).forEach(function(id) {
+      if (!players[id] || players[id].round < G.currentRound) {
+        allDone = false;
+      }
+    });
+
+    if (allDone) {
+      pRef.off('value', pCb);
+      updateHpDisplay();
+
+      if (G.bossHp <= 0) {
+        endBossGame(true);
+        return;
+      }
+
+      var alive = Object.keys(G.bossPlayers).filter(function(id) {
+        return players[id] && players[id].hp > 0;
+      });
+      if (alive.length === 0) {
+        endBossGame(false);
+        return;
+      }
+
+      setTimeout(function() {
+        if (G.hp > 0) { nextRound(); }
+      }, 1500);
+    }
+  });
+  G.listeners.push({ ref: pRef, listener: pListener, event: 'value' });
+}
+
+function endBossGame(victory) {
+  stopBossTimer();
+  cleanupFirebase();
+
+  showScreen('screen-result');
+
+  var pvpPlayers = document.getElementById('result-pvp-players');
+  var bossInfo = document.getElementById('result-boss-info');
+  pvpPlayers.classList.add('hidden');
+  bossInfo.classList.remove('hidden');
+
+  if (victory) {
+    document.getElementById('result-icon').textContent = '🏆';
+    document.getElementById('result-title').textContent = '🎉 魔王已被擊敗！';
+    document.getElementById('result-subtitle').textContent = '恭喜所有勇士！';
+  } else {
+    document.getElementById('result-icon').textContent = '💀';
+    document.getElementById('result-title').textContent = '全軍覆沒...';
+    document.getElementById('result-subtitle').textContent = '魔王太強大了，下次再挑戰！';
+  }
+
+  document.getElementById('result-boss-hp').textContent = Math.max(0, G.bossHp) + '/' + G.bossMaxHp;
+
+  var bp = document.getElementById('result-boss-players');
+  bp.innerHTML = '';
+  Object.keys(G.bossPlayers).sort().forEach(function(id) {
+    var p = G.bossPlayers[id];
+    var face = COLOR_MAP[p.color] ? COLOR_MAP[p.color].face : '🧙‍♂️';
+    var div = document.createElement('div');
+    div.className = 'flex justify-between items-center text-white';
+    div.innerHTML = '<span>' + face + ' ' + p.name + '</span><span>' + Math.max(0, p.hp) + '/' + G.maxHp + '</span>';
+    bp.appendChild(div);
+  });
+
+  if (G.isHost && G.roomRef) {
+    G.roomRef.child('winner').set(victory ? 'team' : 'boss');
+  }
+
+  listenForGameReset();
 }
 
 // =====================================================
@@ -1180,14 +1724,23 @@ function flashHpBar(target) {
 }
 
 function showDamageFloat(target, amount) {
-  const fighter = document.getElementById(getFighterId(target));
-  if (!fighter) return;
-  const rect = fighter.getBoundingClientRect();
-  const el = document.createElement('div');
+  var el = document.createElement('div');
   el.className = 'dmg-float' + (amount <= 0 ? ' heal' : '');
   el.textContent = amount <= 0 ? `+${-amount}` : `-${amount}`;
-  el.style.left = (rect.left + rect.width / 2 - 30) + 'px';
-  el.style.top = (rect.top - 10) + 'px';
+
+  // Position relative to target or center screen
+  if (G.gameMode === 'boss' && target === 'self') {
+    el.style.left = 'calc(50% - 30px)';
+    el.style.top = '45%';
+  } else {
+    const fighter = document.getElementById(getFighterId(target));
+    if (!fighter) { el.style.left = 'calc(50% - 30px)'; el.style.top = '45%'; }
+    else {
+      const rect = fighter.getBoundingClientRect();
+      el.style.left = (rect.left + rect.width / 2 - 30) + 'px';
+      el.style.top = (rect.top - 10) + 'px';
+    }
+  }
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 900);
 }
@@ -1208,19 +1761,54 @@ function applyLevelDamage(correct) {
     updateHpDisplay();
     return;
   }
+
+  // Boss mode
+  if (G.gameMode === 'boss') {
+    var updates = {};
+    if (correct) {
+      // Deal damage to boss
+      var dmg = G.hp >= G.maxHp ? 3 : 2; // +1 damage at full HP
+      G.bossHp = Math.max(0, G.bossHp - dmg);
+      updates['hp'] = G.bossHp;
+      G.roomRef.child('boss').update(updates);
+
+      // Visual
+      var bossEl = document.getElementById('boss-emoji');
+      if (bossEl) {
+        bossEl.classList.remove('boss-hit-flash');
+        void bossEl.offsetWidth;
+        bossEl.classList.add('boss-hit-flash');
+      }
+      showDamageFloat('self', dmg);
+      updateBossDisplay();
+    } else {
+      // Self damage
+      G.hp = Math.max(0, G.hp - 2);
+      var hpUpdates = {};
+      hpUpdates[G.playerId + '/hp'] = G.hp;
+      G.roomRef.child('players').update(hpUpdates);
+      if (G.bossPlayers[G.playerId]) G.bossPlayers[G.playerId].hp = G.hp;
+      showDamageFloat('self', 2);
+      updateBossPlayersRow();
+    }
+    updateHpDisplay();
+    return;
+  }
+
+  // PvP mode
   const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
-  const updates = {};
+  const updates2 = {};
   let target;
   if (correct) {
     G.opponentHp = Math.max(0, G.opponentHp - 2);
-    updates[oppId + '/hp'] = G.opponentHp;
+    updates2[oppId + '/hp'] = G.opponentHp;
     target = 'opponent';
   } else {
     G.hp = Math.max(0, G.hp - 2);
-    updates[G.playerId + '/hp'] = G.hp;
+    updates2[G.playerId + '/hp'] = G.hp;
     target = 'self';
   }
-  G.roomRef.child('players').update(updates);
+  G.roomRef.child('players').update(updates2);
   updateHpDisplay();
   flashHpBar(target);
   shakeFighter(target);
@@ -1383,7 +1971,11 @@ function submitLayer3() {
   document.getElementById('l3-submit').disabled = true;
 
   // Finish round
-  setTimeout(() => finishRound(), 1000);
+  if (G.gameMode === 'boss') {
+    setTimeout(() => bossFinishRound(), 1000);
+  } else {
+    setTimeout(() => finishRound(), 1000);
+  }
 }
 
 // =====================================================
@@ -1561,7 +2153,8 @@ function updateRoomList(snap) {
       const div = document.createElement('div');
       div.className = 'room-item flex items-center justify-between p-3 rounded-xl bg-slate-700/50 hover:bg-slate-700 cursor-pointer transition';
       if (code === selectedRoomCode) div.className += ' ring-2 ring-blue-500';
-      div.innerHTML = '<div><span class="text-blue-400 font-bold tracking-wider">' + code + '</span><span class="text-slate-400 ml-2">👤 ' + escapeHtml(hostName) + '</span></div><span class="text-slate-500 text-sm">等待中</span>';
+      var modeTag = room.mode === 'boss' ? ('🐉 ' + (room.maxPlayers || 2) + '人') : '⚔️ PvP';
+      div.innerHTML = '<div><span class="text-blue-400 font-bold tracking-wider">' + code + '</span><span class="text-slate-400 ml-2">👤 ' + escapeHtml(hostName) + '</span></div><div class="text-right"><span class="text-xs ' + (room.mode === 'boss' ? 'text-purple-400' : 'text-blue-400') + '">' + modeTag + '</span><span class="text-slate-500 text-sm ml-2">等待中</span></div>';
       div.onclick = function() { selectRoom(code, hostName); };
       list.appendChild(div);
     }
@@ -1630,17 +2223,28 @@ function joinSelectedRoom() {
   G.playerName = name;
   G.playerColor = G.playerColor || 'blue';
   G.isHost = false;
-  G.playerId = 'p2';
   G.roomCode = selectedRoomCode;
   G.roomRef = db.ref('rooms/' + selectedRoomCode);
   G.roomRef.once('value').then(function(snap) {
     if (!snap.exists()) { showError('房間不存在'); return; }
     var data = snap.val();
     if (data.status !== 'waiting') { showError('房間已滿或已開始'); return; }
-    if (data.players.p2 && data.players.p2.name) { showError('房間已滿'); return; }
+
+    var targetSlot = null;
+    if (!data.players.p2 || !data.players.p2.name) {
+      targetSlot = 'p2';
+    } else if (data.mode === 'boss' && data.maxPlayers === 3 && (!data.players.p3 || !data.players.p3.name)) {
+      targetSlot = 'p3';
+    } else {
+      showError('房間已滿'); return;
+    }
+
+    G.playerId = targetSlot;
     G.maxHp = data.maxHp;
+    G.gameMode = data.mode || 'pvp';
+    G.maxPlayers = data.maxPlayers || 2;
     stopRoomListListener();
-    G.roomRef.child('players/p2').set({
+    G.roomRef.child('players/' + targetSlot).set({
       name: G.playerName,
       color: G.playerColor,
       hp: data.maxHp,
@@ -1685,7 +2289,8 @@ function startPractice() {
   G.hp = 100;
   G.opponentHp = 100;
   showScreen('screen-game');
-  document.getElementById('hp-bar-area').classList.remove('hidden');
+  document.getElementById('hp-bar-area-pvp').classList.remove('hidden');
+  document.getElementById('hp-bar-area-boss').classList.add('hidden');
   document.getElementById('waiting-opponent').classList.add('hidden');
   document.getElementById('round-result').classList.add('hidden');
   document.getElementById('p1-name').textContent = G.playerName || '玩家';
@@ -1745,6 +2350,10 @@ function showPracticeResult() {
 // GAME OVER
 // =====================================================
 function endGame(players) {
+  stopBossTimer();
+  document.getElementById('result-pvp-players').classList.remove('hidden');
+  document.getElementById('result-boss-info').classList.add('hidden');
+
   const p1Hp = players.p1.hp;
   const p2Hp = players.p2.hp;
   let winner = null;
@@ -1781,27 +2390,62 @@ function listenForGameReset() {
     if (!snap.exists()) { backToLobby(); return; }
     const data = snap.val();
     if (data.winner === null && data.status === 'started') {
-      // Game was reset (host pressed play again)
       G.roomRef.off('value', resetListener);
-      G.roomRef.child('players/' + G.playerId).once('value', pSnap => {
-        if (!pSnap.exists()) return;
-        const me = pSnap.val();
-        const oppId = G.playerId === 'p1' ? 'p2' : 'p1';
-        G.roomRef.child('players/' + oppId).once('value', oSnap => {
-          if (!oSnap.exists()) return;
-          const opp = oSnap.val();
-          G.currentRound = 0;
-          G.combo = me.combo || 0;
-          G.hp = me.hp;
-          G.opponentHp = opp.hp;
-          G.opponentName = opp.name;
-          G.opponentColor = opp.color;
-          showScreen('screen-game');
-          setupGameUI(me, opp);
-          startGameListeners();
-          setTimeout(() => nextRound(), 500);
+
+      if (data.mode === 'boss') {
+        // Boss mode reset - reload full game
+        G._gameStarted = false;
+        G.gameMode = 'boss';
+        G.maxPlayers = data.maxPlayers || 2;
+        G.maxHp = data.maxHp;
+        G.currentRound = 0;
+        G.combo = 0;
+        G.hp = data.maxHp;
+        G.streak = 0;
+        G.bossHp = data.boss ? data.boss.hp : (G.maxPlayers === 2 ? 200 : 300);
+        G.bossMaxHp = data.boss ? data.boss.maxHp : (G.maxPlayers === 2 ? 200 : 300);
+
+        G.bossPlayers = {};
+        Object.keys(data.players).forEach(function(id) {
+          var p = data.players[id];
+          if (p && p.name) {
+            G.bossPlayers[id] = { name: p.name, color: p.color || 'blue', hp: p.hp || G.maxHp, combo: p.combo || 0 };
+          }
         });
-      });
+
+        showScreen('screen-game');
+        document.getElementById('hp-bar-area-pvp').classList.add('hidden');
+        document.getElementById('hp-bar-area-boss').classList.remove('hidden');
+        cleanupFirebase();
+        startGameListeners();
+        setupBossUI();
+        startBossTimer();
+        setTimeout(function() { nextRound(); }, 500);
+      } else {
+        // PvP mode reset
+        G.roomRef.child('players/' + G.playerId).once('value', function(pSnap) {
+          if (!pSnap.exists()) return;
+          var me = pSnap.val();
+          var oppId = G.playerId === 'p1' ? 'p2' : 'p1';
+          G.roomRef.child('players/' + oppId).once('value', function(oSnap) {
+            if (!oSnap.exists()) return;
+            var opp = oSnap.val();
+            G.currentRound = 0;
+            G.combo = me.combo || 0;
+            G.hp = me.hp;
+            G.opponentHp = opp.hp;
+            G.opponentName = opp.name;
+            G.opponentColor = opp.color;
+            showScreen('screen-game');
+            document.getElementById('hp-bar-area-pvp').classList.remove('hidden');
+            document.getElementById('hp-bar-area-boss').classList.add('hidden');
+            setupPVPUI(me, opp);
+            cleanupFirebase();
+            startGameListeners();
+            setTimeout(function() { nextRound(); }, 500);
+          });
+        });
+      }
     }
   });
   G.listeners.push({ ref: G.roomRef, listener: resetListener, event: 'value' });
@@ -1813,6 +2457,44 @@ function startGameListeners() {
   const pListener = pRef.on('value', snap => {
     if (!snap.exists()) return;
     const players = snap.val();
+
+    if (G.gameMode === 'boss') {
+      // Update boss players
+      Object.keys(players).forEach(function(id) {
+        var p = players[id];
+        if (p && p.name) {
+          if (!G.bossPlayers[id]) {
+            G.bossPlayers[id] = { name: p.name, color: p.color || 'blue', hp: p.hp, combo: p.combo || 0 };
+          } else {
+            G.bossPlayers[id].hp = p.hp;
+            G.bossPlayers[id].combo = p.combo || 0;
+            G.bossPlayers[id].name = p.name;
+            G.bossPlayers[id].color = p.color || G.bossPlayers[id].color;
+          }
+        }
+      });
+      if (players[G.playerId]) {
+        G.hp = players[G.playerId].hp;
+        G.combo = players[G.playerId].combo || 0;
+      }
+      updateBossPlayersRow();
+      updateHpDisplay();
+      updateComboDisplay();
+
+      // Check if all players are dead
+      var allDead = true;
+      Object.keys(G.bossPlayers).forEach(function(id) {
+        if (G.bossPlayers[id] && G.bossPlayers[id].hp > 0) allDead = false;
+      });
+      if (allDead && !G._advancingRound) {
+        G._advancingRound = true;
+        endBossGame(false);
+        return;
+      }
+      return;
+    }
+
+    // PvP mode
     if (players[G.playerId]) {
       G.hp = players[G.playerId].hp;
       G.combo = players[G.playerId].combo || 0;
@@ -1831,75 +2513,141 @@ function startGameListeners() {
   });
   G.listeners.push({ ref: pRef, listener: pListener, event: 'value' });
 
+  // Listen for boss HP changes (boss mode)
+  if (G.gameMode === 'boss') {
+    const bRef = G.roomRef.child('boss');
+    const bListener = bRef.on('value', snap => {
+      if (!snap.exists()) return;
+      var boss = snap.val();
+      G.bossHp = boss.hp || 0;
+      G.bossMaxHp = boss.maxHp || 200;
+      G.bossLastAttack = boss.lastAttack || Date.now();
+      updateBossDisplay();
+      if (G.bossHp <= 0 && !G._advancingRound) {
+        G._advancingRound = true;
+        endBossGame(true);
+      }
+    });
+    G.listeners.push({ ref: bRef, listener: bListener, event: 'value' });
+  }
 }
 
 function playAgain() {
   if (G.isHost) {
-    const resetData = {
+    var playersData = {
+      p1: { name: G.playerName, color: G.playerColor, hp: G.maxHp, combo: 0, round: 0 },
+      p2: { name: '', color: '', hp: G.maxHp, combo: 0, round: 0 }
+    };
+    if (G.gameMode === 'boss') {
+      playersData.p2.name = G.bossPlayers['p2'] ? G.bossPlayers['p2'].name : '';
+      playersData.p2.color = G.bossPlayers['p2'] ? G.bossPlayers['p2'].color : 'red';
+      if (G.maxPlayers === 3) {
+        playersData.p3 = { name: G.bossPlayers['p3'] ? G.bossPlayers['p3'].name : '', color: G.bossPlayers['p3'] ? G.bossPlayers['p3'].color : 'purple', hp: G.maxHp, combo: 0, round: 0 };
+      }
+    } else {
+      playersData.p2.name = G.opponentName;
+      playersData.p2.color = G.opponentColor;
+    }
+
+    var resetData = {
+      mode: G.gameMode,
+      maxPlayers: G.maxPlayers,
       status: 'started',
       maxHp: G.maxHp,
       questions: {},
       roundResults: {},
       winner: null,
-      players: {
-        p1: { name: G.playerName, color: G.playerColor, hp: G.maxHp, combo: 0, round: 0 },
-        p2: { name: G.opponentName, color: G.opponentColor, hp: G.maxHp, combo: 0, round: 0 }
-      }
+      players: playersData
     };
-    G.roomRef.update(resetData).then(() => {
+
+    // Boss state reset
+    if (G.gameMode === 'boss') {
+      var bossHp = G.maxPlayers === 2 ? 200 : 300;
+      resetData.boss = { hp: bossHp, maxHp: bossHp, lastAttack: Date.now() };
+    }
+
+    G.roomRef.update(resetData).then(function() {
       G.currentRound = 0;
       G.combo = 0;
       G.hp = G.maxHp;
-      G.opponentHp = G.maxHp;
       G._gameStarted = true;
       showScreen('screen-game');
       cleanupFirebase();
       startGameListeners();
-      setupGameUI(
-        { name: G.playerName, color: G.playerColor, hp: G.maxHp, combo: 0 },
-        { name: G.opponentName, color: G.opponentColor, hp: G.maxHp, combo: 0 }
-      );
-      setTimeout(() => nextRound(), 500);
+
+      if (G.gameMode === 'boss') {
+        setupBossUI();
+        startBossTimer();
+        setTimeout(function() { nextRound(); }, 500);
+      } else {
+        var me = { name: G.playerName, color: G.playerColor, hp: G.maxHp, combo: 0 };
+        var opp = { name: G.opponentName, color: G.opponentColor, hp: G.maxHp, combo: 0 };
+        document.getElementById('hp-bar-area-pvp').classList.remove('hidden');
+        document.getElementById('hp-bar-area-boss').classList.add('hidden');
+        setupPVPUI(me, opp);
+        setTimeout(function() { nextRound(); }, 500);
+      }
     });
   } else {
-    G.roomRef.child('players/p2').update({ hp: G.maxHp, combo: 0, round: 0 });
+    // Non-host: reset own player
+    var playerUpdates = {};
+    playerUpdates[G.playerId + '/hp'] = G.maxHp;
+    playerUpdates[G.playerId + '/combo'] = 0;
+    playerUpdates[G.playerId + '/round'] = 0;
+    G.roomRef.child('players').update(playerUpdates);
+
     G.currentRound = 0;
     G.combo = 0;
     G.hp = G.maxHp;
-    G.opponentHp = G.maxHp;
     showScreen('screen-game');
     cleanupFirebase();
     startGameListeners();
+
+    if (G.gameMode === 'boss') {
+      G.bossHp = G.bossMaxHp;
+      setupBossUI();
+      startBossTimer();
+    }
+
     // Wait for host to reset game state (winner becomes null)
     const wRef = G.roomRef.child('winner');
     const wListener = wRef.on('value', function wCallback(wSnap) {
       if (wSnap.val() === null) {
         wRef.off('value', wCallback);
-        // Wait for questions to appear
         const qRef = G.roomRef.child('questions/1');
         const qCallback = qRef.on('value', function qCb(qSnap) {
           if (qSnap.exists()) {
             qRef.off('value', qCallback);
-            setTimeout(() => nextRound(), 500);
+            setTimeout(function() { nextRound(); }, 500);
           }
         });
-        setTimeout(() => qRef.off('value', qCallback), 20000);
+        setTimeout(function() { qRef.off('value', qCallback); }, 20000);
       }
     });
   }
 }
 
 function backToLobby() {
+  stopBossTimer();
   cleanupFirebase();
   if (G.roomRef) {
     if (G.isHost) G.roomRef.remove();
-    else G.roomRef.child('players/p2').set({ name: '', color: '', hp: G.maxHp, combo: 0, round: 0 });
+    else {
+      var clearData = { name: '', color: '', hp: G.maxHp, combo: 0, round: 0 };
+      G.roomRef.child('players/p2').set(clearData);
+      if (G.gameMode === 'boss' && G.maxPlayers === 3) {
+        G.roomRef.child('players/p3').set(clearData);
+      }
+      G.roomRef.child('status').set('waiting');
+    }
   }
   G.roomRef = null;
   G.roomCode = null;
   G._gameStarted = false;
   G.mode = null;
-  document.getElementById('hp-bar-area').classList.remove('hidden');
+  G.gameMode = null;
+  document.getElementById('hp-bar-area-pvp').classList.remove('hidden');
+  document.getElementById('hp-bar-area-boss').classList.add('hidden');
   enterLobby();
 }
 
