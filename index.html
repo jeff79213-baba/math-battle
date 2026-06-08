@@ -223,6 +223,12 @@ body { font-family: 'Segoe UI', sans-serif; background: #0f172a; min-height: 100
     <h2 class="text-3xl font-bold text-white">選擇挑戰人數</h2>
     <p class="text-slate-400">選擇一起討伐魔王的玩家人數</p>
     <div class="flex gap-4 justify-center">
+      <button onclick="setPlayerCount(1)"
+        class="player-count-btn py-8 px-8 rounded-2xl bg-slate-700 hover:bg-purple-600 text-white font-bold text-xl transition active:scale-95" data-count="1">
+        <div class="text-5xl mb-2">👤</div>
+        <div>1 人</div>
+        <div class="text-xs text-purple-300 mt-1 font-normal">單機測試</div>
+      </button>
       <button onclick="setPlayerCount(2)"
         class="player-count-btn py-8 px-10 rounded-2xl bg-slate-700 hover:bg-purple-600 text-white font-bold text-xl transition active:scale-95" data-count="2">
         <div class="text-5xl mb-2">👤👤</div>
@@ -685,6 +691,9 @@ const G = {
   opponentHp: 100,
   opponentCombo: 0,
 
+  // Solo boss mode (no Firebase)
+  soloBoss: false,
+
   // Boss mode
   bossHp: 0,
   bossMaxHp: 0,
@@ -734,7 +743,12 @@ function setPlayerCount(n) {
     b.classList.toggle('bg-purple-600', parseInt(b.dataset.count) === n);
     b.classList.toggle('bg-slate-700', parseInt(b.dataset.count) !== n);
   });
-  enterLobby();
+  if (n === 1) {
+    // Solo boss mode - start immediately
+    startSoloBoss();
+  } else {
+    enterLobby();
+  }
 }
 
 // =====================================================
@@ -1185,6 +1199,40 @@ function setupBossUI() {
   updateHpDisplay();
 }
 
+function startSoloBoss() {
+  // Reset state
+  G.gameMode = 'boss';
+  G.soloBoss = true;
+  G.maxPlayers = 1;
+  G.maxHp = 100;
+  G.hp = 100;
+  G.combo = 0;
+  G.streak = 0;
+  G.currentRound = 0;
+  G._gameStarted = true;
+  G.bossHp = 200;
+  G.bossMaxHp = 200;
+  G.bossLastAttack = Date.now();
+  G.bossPlayers = {};
+  G.bossPlayers.p1 = { name: G.playerName || '玩家', color: G.playerColor || 'blue', hp: 100, combo: 0 };
+  G.playerId = 'p1';
+  G.isHost = true;
+  G.roomRef = null;
+
+  // Show game screen with boss UI
+  showScreen('screen-game');
+  document.getElementById('hp-bar-area-pvp').classList.add('hidden');
+  document.getElementById('hp-bar-area-boss').classList.remove('hidden');
+  document.getElementById('waiting-opponent').classList.add('hidden');
+  document.getElementById('round-result').classList.add('hidden');
+  document.getElementById('p1-name').textContent = G.playerName || '玩家';
+  document.getElementById('p2-name').textContent = '🐉 魔王';
+
+  setupBossUI();
+  startBossTimer();
+  setTimeout(function() { nextRound(); }, 500);
+}
+
 function updateBossDisplay() {
   var pct = Math.max(0, (G.bossHp / G.bossMaxHp) * 100);
   var fill = document.getElementById('boss-hp-fill');
@@ -1258,7 +1306,6 @@ function bossAttack() {
 
   G.bossLastAttack = Date.now();
 
-  var updates = {};
   Object.keys(G.bossPlayers).forEach(function(id) {
     var currentHp = G.bossPlayers[id].hp;
     var newHp = Math.max(0, currentHp - 7);
@@ -1266,11 +1313,16 @@ function bossAttack() {
     if (id === G.playerId) {
       G.hp = newHp;
     }
-    updates[id + '/hp'] = newHp;
   });
 
-  G.roomRef.child('boss').update({ lastAttack: G.bossLastAttack });
-  G.roomRef.child('players').update(updates);
+  if (!G.soloBoss) {
+    var updates = {};
+    Object.keys(G.bossPlayers).forEach(function(id) {
+      updates[id + '/hp'] = G.bossPlayers[id].hp;
+    });
+    G.roomRef.child('boss').update({ lastAttack: G.bossLastAttack });
+    G.roomRef.child('players').update(updates);
+  }
 
   var bossEl = document.getElementById('boss-emoji');
   if (bossEl) {
@@ -1294,33 +1346,41 @@ function bossFinishRound() {
 
   G.roundDone = true;
 
-  var updates = {};
-  updates[G.playerId + '/round'] = G.currentRound;
-  G.roomRef.child('players').update(updates);
+  if (!G.soloBoss) {
+    var updates = {};
+    updates[G.playerId + '/round'] = G.currentRound;
+    G.roomRef.child('players').update(updates);
+  }
 
   if (allCorrect) {
     var healAmt = 5;
     var newHp = Math.min(G.maxHp, G.hp + healAmt);
     G.hp = newHp;
     if (G.bossPlayers[G.playerId]) G.bossPlayers[G.playerId].hp = newHp;
-    var hpUpdates = {};
-    hpUpdates[G.playerId + '/hp'] = newHp;
-    G.roomRef.child('players').update(hpUpdates);
+    if (!G.soloBoss) {
+      var hpUpdates = {};
+      hpUpdates[G.playerId + '/hp'] = newHp;
+      G.roomRef.child('players').update(hpUpdates);
+    }
 
     showDamageFloat('self', -healAmt);
     G.streak++;
 
-    if (G.streak >= 3 && G.streak % 3 === 0 && G.isHost) {
+    if (G.streak >= 3 && G.streak % 3 === 0) {
       var teamHeal = 10;
-      var healUpdates = {};
       Object.keys(G.bossPlayers).forEach(function(id) {
         var cur = G.bossPlayers[id].hp;
         var healed = Math.min(G.maxHp, cur + teamHeal);
         G.bossPlayers[id].hp = healed;
         if (id === G.playerId) G.hp = healed;
-        healUpdates[id + '/hp'] = healed;
       });
-      G.roomRef.child('players').update(healUpdates);
+      if (!G.soloBoss) {
+        var healUpdates = {};
+        Object.keys(G.bossPlayers).forEach(function(id) {
+          healUpdates[id + '/hp'] = G.bossPlayers[id].hp;
+        });
+        G.roomRef.child('players').update(healUpdates);
+      }
       document.getElementById('rr-text').innerHTML = '🔥 連續三輪全對！全體回血 <span class="text-green-400">+10</span>！';
     } else {
       document.getElementById('rr-text').innerHTML = '✅ 全對！回血 <span class="text-green-400">+5</span>';
@@ -1335,7 +1395,17 @@ function bossFinishRound() {
   updateBossStreak();
 
   document.getElementById('round-result').classList.remove('hidden');
-  waitBossRoundComplete();
+
+  if (G.soloBoss) {
+    // Solo: proceed directly without waiting
+    setTimeout(function() {
+      if (G.bossHp <= 0) { endBossGame(true); return; }
+      if (G.hp <= 0) { endBossGame(false); return; }
+      nextRound();
+    }, 1500);
+  } else {
+    waitBossRoundComplete();
+  }
 }
 
 function waitBossRoundComplete() {
@@ -1766,15 +1836,14 @@ function applyLevelDamage(correct) {
 
   // Boss mode
   if (G.gameMode === 'boss') {
-    var updates = {};
     if (correct) {
       // Deal damage to boss
       var dmg = G.hp >= G.maxHp ? 3 : 2; // +1 damage at full HP
       G.bossHp = Math.max(0, G.bossHp - dmg);
-      updates['hp'] = G.bossHp;
-      G.roomRef.child('boss').update(updates);
+      if (!G.soloBoss) {
+        G.roomRef.child('boss').update({ hp: G.bossHp });
+      }
 
-      // Visual
       var bossEl = document.getElementById('boss-emoji');
       if (bossEl) {
         bossEl.classList.remove('boss-hit-flash');
@@ -1786,9 +1855,11 @@ function applyLevelDamage(correct) {
     } else {
       // Self damage
       G.hp = Math.max(0, G.hp - 2);
-      var hpUpdates = {};
-      hpUpdates[G.playerId + '/hp'] = G.hp;
-      G.roomRef.child('players').update(hpUpdates);
+      if (!G.soloBoss) {
+        var hpUpdates = {};
+        hpUpdates[G.playerId + '/hp'] = G.hp;
+        G.roomRef.child('players').update(hpUpdates);
+      }
       if (G.bossPlayers[G.playerId]) G.bossPlayers[G.playerId].hp = G.hp;
       showDamageFloat('self', 2);
       updateBossPlayersRow();
@@ -2454,6 +2525,8 @@ function listenForGameReset() {
 }
 
 function startGameListeners() {
+  if (G.soloBoss) return; // No Firebase listeners in solo mode
+
   // Listen for player HP changes
   const pRef = G.roomRef.child('players');
   const pListener = pRef.on('value', snap => {
@@ -2535,6 +2608,12 @@ function startGameListeners() {
 }
 
 function playAgain() {
+  // Solo boss: restart directly
+  if (G.soloBoss) {
+    startSoloBoss();
+    return;
+  }
+
   if (G.isHost) {
     var playersData = {
       p1: { name: G.playerName, color: G.playerColor, hp: G.maxHp, combo: 0, round: 0 },
